@@ -30,6 +30,7 @@ src/HostDiscovery.cs
 src/HostProfiles.cs
 src/AgentMessages.cs
 src/ChildApps.cs
+src/ChildAppWindow.cs
 src/NativeHostDiscovery.cs
 src/StreamingHost.cs
 src/SessionAgent.cs

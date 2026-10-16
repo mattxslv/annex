@@ -20,9 +20,11 @@ sealed class LauncherApplication : IDisposable
     dynamic ocx;
     RdpScaleSettings scale;
     string password;
+    string selection = "", selectedName = "host";
+    ChildAppWindow appWindow;
     uint child;
     long lastAttempt;
-    bool wantReconnect, ending, inFlight, promptOpen, setupReady;
+    bool wantReconnect, ending, inFlight, promptOpen, setupReady, settingUp;
     HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the child desktop to check its Sunshine instance.", 0);
 
     public LauncherApplication(string baseDirectory)
@@ -49,9 +51,14 @@ sealed class LauncherApplication : IDisposable
             if (url != null && StillConnected(child) && TryOpen(url))
                 window.SetNotice("Browser requested on this desktop. If nothing opens, copy the Sunshine web UI URL below into Chrome.");
         };
-        window.GuideRequested += delegate {
-            string readme = Path.Combine(root, "README.md");
-            TryOpen(File.Exists(readme) ? readme : "https://github.com/ocr1n/childstream/blob/review/reliability/README.md#setup");
+        window.GuideRequested += delegate { SetupRepair(); };
+        window.RefreshHostsRequested += delegate { RequestHost(new AgentRequest { Command = "STATUS" }); };
+        window.HostSelected += id => { requests.Select(id); selection = id; RequestHost(new AgentRequest { Command = "SELECT_HOST", SelectionId = id }); };
+        window.BrowseHostRequested += delegate { BrowseHost(); };
+        window.OpenAppRequested += delegate { OpenApps(); };
+        window.InstallRequested += name => {
+            string url = name == "Sunshine" ? "https://github.com/LizardByte/Sunshine/releases" : name == "Apollo" ? "https://github.com/ClassicOldSong/Apollo/releases" : name == "VibePollo" ? "https://github.com/Nonary/Vibepollo/releases" : null;
+            if (url != null) TryOpen(url);
         };
         window.EndSessionRequested += delegate { EndSession(); };
         window.MinimizeRequested += delegate { window.WindowState = FormWindowState.Minimized; };
@@ -60,14 +67,15 @@ sealed class LauncherApplication : IDisposable
             window.Hide(); tray.ShowBalloonTip(1500, "ChildStream", "Still attached. Double-click the tray icon to restore the viewer.", ToolTipIcon.Info);
         };
         window.FormClosing += delegate { ending = true; wantReconnect = false; requests.Close(); timer.Stop(); tray.Visible = false; };
+        window.Shown += delegate { DiscoverBeforeConnect(); };
         timer.Tick += delegate { Poll(); };
         bool enabled;
         bool known = Program.ChildSessionsEnabled(out enabled);
         setupReady = known && enabled;
         if (!setupReady) {
             window.SetSession("Setup required", known ? "Windows child sessions are not enabled yet." : "Windows could not report child-session support. Check launcher.log.", false, false);
-            window.ShowGuidance("One-time setup required", "Extract the portable ZIP, then run scripts\\setup.ps1 as administrator. It installs portable Sunshine and enables the child desktop. Reopen ChildStream afterward.");
-            window.SetHost(new HostSnapshot(HostState.Missing, "Setup is required before this app can create a child desktop or check its Sunshine instance.", 0));
+            window.ShowGuidance("One-time desktop setup", "Choose Setup / repair to enable the Windows child desktop and register this EXE's helper. Windows may ask for administrator approval. A streaming host is optional.");
+            window.SetHost(new HostSnapshot(HostState.Waiting, "A streaming host is optional. Set up Windows, then start the desktop.", 0));
         }
     }
 
@@ -118,7 +126,7 @@ sealed class LauncherApplication : IDisposable
             object valueChild = true; ((IMsRdpExtendedSettings)rdp.Ocx).put_Property("ConnectToChildSession", ref valueChild);
             lastAttempt = clock.ElapsedMilliseconds; wantReconnect = true;
             window.SetSession("Connecting...", "Opening the second Windows desktop. Keep the viewer attached during your stream.", false, true);
-            ocx.Connect();
+            RdpInputSettings.Connect(ocx, new Action<string>(message => { Program.Log(message); window.SetNotice(message); }));
         }
         catch (Exception ex) {
             wantReconnect = false; Program.Log("connect failed: " + ex);
@@ -145,22 +153,25 @@ sealed class LauncherApplication : IDisposable
         HostSnapshot pending = LauncherPolicy.ForSession(host, child, actual);
         if (!Object.ReferenceEquals(host, pending)) { host = pending; window.SetHost(host); }
         requests.Update(actual, state == 1 && actual != 0); child = actual;
+        if (appWindow != null && !appWindow.IsDisposed) appWindow.SetAvailable(actual != 0 && state == 1);
         if (state == 1) window.SetSession("Connected", "The child desktop is attached. You can keep using your physical desktop.", true, true);
         else if (state != 0) window.SetSession("Connecting...", "Windows is opening the second desktop.", false, true);
         else if (wantReconnect) window.SetSession("Reconnecting...", "The viewer disconnected. Your child session may still be running.", false, true);
-        if (state == 1 && child != 0 && !inFlight && !promptOpen) RequestHost("STATUS");
+        if (state == 1 && child != 0 && !inFlight && !promptOpen) RequestHost(new AgentRequest { Command = "STATUS" });
         if (state == 0 && wantReconnect && clock.ElapsedMilliseconds - lastAttempt > 6000) Connect();
     }
-    async void RequestHost(string command)
+    async void RequestHost(AgentRequest request)
     {
         if (ending || inFlight || !StillConnected(child)) return;
         uint requestedChild = child; int token = requests.Generation;
         inFlight = true; window.SetBusy(true); bool ask = false;
         try {
-            HostSnapshot result = await Task.Run(() => client.Request(requestedChild, command));
+            AgentReply result = await Task.Run(() => client.Request(requestedChild, request));
             if (!window.IsDisposed && requests.Accepts(token, requestedChild) && StillConnected(requestedChild)) {
-                host = result; window.SetHost(result);
-                ask = command == "STATUS" && prompts.ShouldAsk(requestedChild, result.State, true);
+                selection = result.SelectionId; requests.Select(selection); selectedName = "host";
+                foreach (AgentHost item in result.Hosts) if (item.Id == selection) selectedName = item.Name;
+                host = result.Status; window.SetDiscovery(result);
+                ask = (request.Command == "STATUS" || request.Command == "SELECT_HOST") && (appWindow == null || appWindow.IsDisposed) && prompts.ShouldAsk(requestedChild, selection, host.State, true);
             }
         }
         catch (Exception ex) { if (!window.IsDisposed && !ending) window.SetNotice("Host check failed: " + ex.Message); }
@@ -170,15 +181,68 @@ sealed class LauncherApplication : IDisposable
     void ConfirmStart()
     {
         var approval = new SessionConfirmation(requests, child);
-        if (promptOpen || inFlight || !approval.CanProceed(child) || !StillConnected(approval.Child) || !LauncherPolicy.CanStartHost(host, true)) return;
+        string approvedSelection = selection;
+        if (string.IsNullOrEmpty(approvedSelection) || promptOpen || inFlight || !approval.CanProceed(child) || !StillConnected(approval.Child) || !LauncherPolicy.CanStartHost(host, true)) return;
         promptOpen = true;
         DialogResult answer;
-        try { answer = MessageBox.Show(window, "Sunshine is off or could not start in the child desktop.\n\nStart Sunshine there now? Windows may ask you to approve elevation inside that desktop.", "Start Sunshine?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2); }
+        try { answer = MessageBox.Show(window, "Start " + selectedName + " inside the child desktop?\n\nThis uses the child's settings and ports. Windows may ask you to approve elevation inside that desktop.", "Start " + selectedName + "?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2); }
         finally { promptOpen = false; }
         if (answer == DialogResult.Yes) {
-            if (approval.CanProceed(child) && StillConnected(approval.Child)) RequestHost("START");
-            else window.SetNotice("The desktop connection changed. Review its status and choose Start Sunshine again.");
+            if (approvedSelection == selection && approval.CanProceed(child) && StillConnected(approval.Child)) RequestHost(new AgentRequest { Command = "START_HOST", SelectionId = approvedSelection });
+            else window.SetNotice("The desktop or host selection changed. Review its status and confirm startup again.");
         }
+    }
+    async void DiscoverBeforeConnect() {
+        try {
+            var found = await Task.Run(() => HostDiscovery.Find(root, new NativeHostDiscovery()));
+            if (ending || window.IsDisposed || child != 0 || State() != 0) return;
+            window.SetDiscovery(new AgentReply { Status = new HostSnapshot(found.Installations.Length == 0 ? HostState.Missing : HostState.Waiting, found.Installations.Length == 0 ? "Install Sunshine, Apollo or VibePollo to stream. You can still start and use the child desktop." : "A streaming host was detected. Start the child desktop to choose and run its separate instance.", 0), Diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512) });
+            string registered = InstallationIdentity.Load(); if (registered != null && !HostController.SamePath(registered, root)) window.SetNotice("The helper is registered for " + registered + ". Open that folder's EXE, or use Setup / repair to register this folder.");
+        } catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Host discovery did not finish: " + ex.Message); }
+    }
+    async void SetupRepair() {
+        if (settingUp || ending) return; settingUp = true;
+        try {
+            using (var process = Process.Start(new ProcessStartInfo(Application.ExecutablePath, "-setup") { UseShellExecute = true, WorkingDirectory = root, WindowStyle = ProcessWindowStyle.Hidden })) {
+                if (process == null) throw new IOException("Windows did not start setup."); await Task.Run(() => process.WaitForExit());
+                if (ending || window.IsDisposed) return;
+                bool enabled; setupReady = process.ExitCode == 0 && Program.ChildSessionsEnabled(out enabled) && enabled;
+                if (setupReady && State() == 0) { window.SetSession("Ready", "Windows desktop setup is ready. A streaming host is optional.", false, true); window.ShowGuidance("Ready for a second desktop", "Choose Start desktop. If a helper is already running from an older EXE, restart it inside the child desktop after saving your work."); }
+                window.SetNotice(setupReady ? "Setup is ready. Existing child sessions may need their helper restarted; your apps were left open." : "Setup did not finish. Review the setup message and launcher.log, then retry.");
+            }
+        } catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Setup failed: " + ex.Message); }
+        finally { settingUp = false; }
+    }
+    void BrowseHost() {
+        if (inFlight || !StillConnected(child)) return;
+        using (var picker = new OpenFileDialog { Title = "Choose Sunshine, Apollo or VibePollo", Filter = "Streaming host executable (*.exe)|*.exe", CheckFileExists = true }) {
+            var approval = new SessionConfirmation(requests, child);
+            if (picker.ShowDialog(window) != DialogResult.OK || !approval.CanProceed(child) || !StillConnected(child)) return;
+            try { var chosen = HostDiscovery.FromExecutable(picker.FileName, new NativeHostDiscovery()); HostSelectionStore.Save(Path.Combine(root, "host-selection.txt"), chosen.Id); requests.Select("browsed:" + chosen.Id); selection = ""; RequestHost(new AgentRequest { Command = "STATUS" }); }
+            catch (Exception ex) { window.SetNotice(ex.Message); }
+        }
+    }
+    void OpenApps() {
+        if (!StillConnected(child)) return;
+        if (appWindow != null && !appWindow.IsDisposed) { appWindow.Activate(); return; }
+        appWindow = new ChildAppWindow(); appWindow.RefreshRequested += delegate { RequestApps(new AgentRequest { Command = "LIST_APPS" }); };
+        appWindow.LaunchRequested += id => RequestApps(new AgentRequest { Command = "LAUNCH_APP", AppId = id });
+        appWindow.BrowseRequested += delegate {
+            var approval = new SessionConfirmation(requests, child);
+            using (var picker = new OpenFileDialog { Title = "Choose an installed app or game", Filter = "Windows application (*.exe)|*.exe", CheckFileExists = true })
+                if (picker.ShowDialog(appWindow) == DialogResult.OK && approval.CanProceed(child) && StillConnected(child)) RequestApps(new AgentRequest { Command = "REGISTER_APP", ExecutablePath = picker.FileName });
+        };
+        appWindow.Show(window); RequestApps(new AgentRequest { Command = "LIST_APPS" });
+    }
+    async void RequestApps(AgentRequest request) {
+        if (ending || appWindow == null || appWindow.IsDisposed || !StillConnected(child)) return;
+        if (inFlight) { appWindow.SetApps(new AgentApp[0], "A host/app check is in progress. Choose Refresh apps in a moment."); return; }
+        uint target = child; int token = requests.Generation; var picker = appWindow; inFlight = true; window.SetBusy(true);
+        try {
+            AgentReply reply = await Task.Run(() => client.Request(target, request));
+            if (!picker.IsDisposed && requests.Accepts(token, target) && StillConnected(target)) picker.SetApps(reply.Apps, reply.Status.State == HostState.Unavailable ? reply.Status.Message : reply.Diagnostic);
+        } catch (Exception ex) { if (!picker.IsDisposed) picker.SetApps(new AgentApp[0], ex.Message); }
+        finally { inFlight = false; if (!window.IsDisposed) window.SetBusy(false); }
     }
     void EndSession()
     {

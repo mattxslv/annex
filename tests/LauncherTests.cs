@@ -30,6 +30,43 @@ static class LauncherTests
     }
     public static void Run(Action<string, Action> check)
     {
+        check("no host and discovery errors leave a configured desktop available", delegate {
+            using (var form = new LauncherWindow(false)) {
+                form.SetSession("Ready", "", false, true);
+                form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Missing, "No streaming host detected.", 0), Diagnostic = "One registry view was inaccessible." });
+                Assert(FindButton(form, "Start desktop").Enabled && HasText(form, "No host detected"), "host absence blocked desktop");
+                Assert(!FindButton(form, "Start host").Enabled, "missing selection can start");
+                form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Upgrade helper", 0) });
+                Assert(HasText(form, "Helper unavailable") && !HasText(form, "No host detected"), "missing helper mislabeled missing host");
+            }
+        });
+        check("selected host changes native action names and stale actions are disabled", delegate {
+            using (var form = new LauncherWindow(false)) {
+                form.SetSession("Connected", "", true, true); string id = new string('a', 64);
+                form.SetDiscovery(new AgentReply { SelectionId = id, Hosts = new[] { new AgentHost { Id = id, Name = "Apollo", Path = @"C:\long folder 日本語\sunshine.exe", Version = "0.4" } }, Status = new HostSnapshot(HostState.Stopped, "off", 48989) });
+                Assert(FindButton(form, "Start Apollo").Enabled && HasText(form, "Apollo is off"), "selection not represented");
+                Assert(FindButton(form, "Open app").Enabled, "child app launcher unavailable");
+                form.SetSession("Disconnected", "", false, true); Assert(!FindButton(form, "Start Apollo").Enabled && !FindButton(form, "Open app").Enabled, "stale child actions enabled");
+            }
+        });
+        check("new host selection prompts once while a repeated status does not", delegate {
+            var policy = new HostPromptPolicy(); Assert(policy.ShouldAsk(7, "first", HostState.Stopped, true), "first host not prompted");
+            Assert(!policy.ShouldAsk(7, "first", HostState.Stopped, true), "decline repeated"); Assert(policy.ShouldAsk(7, "second", HostState.Stopped, true), "new host inherited decline");
+        });
+        check("selected host primary action stays visible at the minimum window size", delegate {
+            using (var form = new LauncherWindow(false)) {
+                string first = new string('a', 64); form.SetSession("Connected", "The child desktop is attached. You can keep using your physical desktop.", true, true);
+                form.SetDiscovery(new AgentReply { SelectionId = first, Hosts = new[] { new AgentHost { Id = first, Name = "Apollo", Path = @"C:\A long installed host folder\sunshine.exe", Version = "0.4" }, new AgentHost { Id = new string('b', 64), Name = "Sunshine", Path = @"C:\Other host\sunshine.exe", Version = "2026.1" } }, Status = new HostSnapshot(HostState.Stopped, "The child host is off. Start it to make this desktop available to your client.", 48989) });
+                form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new System.Drawing.Point(-20000, -20000); form.Size = form.MinimumSize; form.Show(); Application.DoEvents();
+                var start = FindButton(form, "Start Apollo"); Assert(form.ClientRectangle.Contains(form.RectangleToClient(start.RectangleToScreen(start.ClientRectangle))), "primary host action falls below the scroll fold"); form.Close();
+            }
+        });
+        check("RDP input routing is set before every connection and failures are reported", delegate {
+            var fake = new InputClient(); string diagnostic = null;
+            RdpInputSettings.Connect(fake, text => diagnostic = text); RdpInputSettings.Connect(fake, text => diagnostic = text);
+            Assert(fake.Connections == 2 && fake.SecuredSettings2.KeyboardHookMode == 0 && diagnostic == null, "remote routing not applied before reconnect: " + diagnostic);
+            RdpInputSettings.Connect(new UnsupportedInputClient(), text => diagnostic = text); Assert(diagnostic != null && diagnostic.Length <= 512, "unsupported input property hidden");
+        });
         check("stopped host asks once and decline does not repeat", delegate {
             var prompt = new HostPromptPolicy();
             Assert(prompt.ShouldAsk(7, HostState.Stopped, true), "initial stopped prompt missing");
@@ -193,4 +230,11 @@ static class LauncherTests
             }
         });
     }
+    public sealed class InputSettings { public int KeyboardHookMode { get; set; } }
+    public sealed class InputClient {
+        public InputSettings SecuredSettings2 { get; private set; } public int Connections { get; private set; }
+        public InputClient() { SecuredSettings2 = new InputSettings(); }
+        public void Connect() { if (SecuredSettings2.KeyboardHookMode != 1) throw new Exception("Connect before keyboard routing"); Connections++; SecuredSettings2.KeyboardHookMode = 0; }
+    }
+    public sealed class UnsupportedInputClient { public void Connect() { } }
 }

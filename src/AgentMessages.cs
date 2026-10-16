@@ -90,7 +90,7 @@ sealed class AgentService
         AgentCodec.Encode(request); // Validate at the service boundary even for an in-process caller.
         lock (gate) {
             if (request.Command == "LIST_APPS" || request.Command == "REGISTER_APP" || request.Command == "LAUNCH_APP") return HandleApps(request);
-            var found = HostDiscovery.Find(root, source); var choice = HostSelection.Choose(found.Installations, selected, null);
+            var found = HostDiscovery.Find(root, source); var choice = HostSelection.Choose(found.Installations, HostSelectionStore.Load(Path.Combine(root, "host-selection.txt")) ?? selected, null);
             string diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512);
             if (request.Command == "SELECT_HOST") {
                 HostInstallation target = found.Installations.FirstOrDefault(h => Key(h) == request.SelectionId);

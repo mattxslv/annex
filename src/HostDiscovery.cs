@@ -68,6 +68,12 @@ sealed class HostDiscoveryResult
 
 static class HostDiscovery
 {
+    public static HostInstallation FromExecutable(string path, IHostDiscoverySource source) {
+        if (!Path.IsPathRooted(path) || !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase) || !source.Exists(path)) throw new InvalidDataException("Choose an installed streaming host EXE.");
+        var candidate = new HostCandidate(path, null, "browse"); var metadata = source.Inspect(path); HostKind? kind = Identify(candidate, metadata);
+        if (!kind.HasValue) throw new InvalidDataException("Could not identify Sunshine, Apollo or VibePollo in this executable's metadata.");
+        return new HostInstallation(path, kind.Value, metadata, "browse");
+    }
     static HostKind? Identify(HostCandidate candidate, HostFileMetadata metadata)
     {
         string branding = metadata.ProductName + " " + metadata.Description;

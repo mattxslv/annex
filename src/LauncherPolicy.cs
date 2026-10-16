@@ -6,7 +6,7 @@ static class LauncherPolicy
     public static HostSnapshot ForSession(HostSnapshot previous, uint oldChild, uint newChild)
     {
         if (newChild == 0) return new HostSnapshot(HostState.Waiting, "Attach the child desktop to check or start its streaming host.", 0);
-        if (oldChild != newChild) return new HostSnapshot(HostState.Checking, "Checking Sunshine in the attached child desktop...", 0);
+        if (oldChild != newChild) return new HostSnapshot(HostState.Checking, "Checking the host in the attached child desktop...", 0);
         return previous;
     }
     public static bool CanStartHost(HostSnapshot status, bool connected)
@@ -18,14 +18,16 @@ static class LauncherPolicy
         return status.State == HostState.Running && HostConfiguration.IsValidPort(status.BasePort) ? "https://127.0.0.1:" + (status.BasePort + 1).ToString(CultureInfo.InvariantCulture) + "/" : null;
     }
     public static string PairingInstructions(string computerName, HostSnapshot status)
+    { return PairingInstructions(computerName, status, "Sunshine"); }
+    public static string PairingInstructions(string computerName, HostSnapshot status, string hostName)
     {
         string url = SettingsUrl(status);
-        if (url == null) return "Start the child desktop and Sunshine first, or wait for startup to finish. Resolve any setup or helper error shown above.\n\nPairing uses a browser on your normal desktop; a browser inside the child desktop is not required.".Replace("\n", Environment.NewLine);
+        if (url == null) return ("Start the child desktop and " + hostName + " first, or wait for startup to finish. Resolve any setup or helper error shown above.\n\nPairing uses a browser on your normal desktop; a browser inside the child desktop is not required.").Replace("\n", Environment.NewLine);
         string address = computerName + ":" + status.BasePort.ToString(CultureInfo.InvariantCulture);
         return ("1. On this PC's normal desktop, open " + url + " in your browser. A browser inside the child desktop is not required.\n\n" +
             "2. First time: review Sunshine's local certificate and create a Sunshine web username/password. This is separate from your Windows password.\n\n" +
             "3. On your phone or other device, add " + address + " in Moonlight. If the PC name does not resolve, use this PC's LAN IP with the same port. Select the host to display a PIN.\n\n" +
-            "4. In Sunshine on this PC, open the PIN tab and enter that PIN and a device name. Return to Moonlight and select Desktop. Keep ChildStream attached; minimize to tray while playing.").Replace("\n", Environment.NewLine);
+            "4. In Sunshine on this PC, open the PIN tab and enter that PIN and a device name. Return to Moonlight and select Desktop. Keep ChildStream attached; minimize to tray while playing.").Replace("Sunshine", hostName).Replace("\n", Environment.NewLine);
     }
 }
 
@@ -33,14 +35,26 @@ sealed class HostPromptPolicy
 {
     uint child;
     bool asked;
+    string selection;
     public bool ShouldAsk(uint session, HostState state, bool connected)
+    { return ShouldAsk(session, "legacy", state, connected); }
+    public bool ShouldAsk(uint session, string selected, HostState state, bool connected)
     {
-        if (session != child) { child = session; asked = false; }
+        if (session != child || selected != selection) { child = session; selection = selected; asked = false; }
         if (state == HostState.Running) asked = false;
-        if (!connected || session == 0 || state != HostState.Stopped || asked) return false;
+        if (!connected || session == 0 || string.IsNullOrEmpty(selected) || state != HostState.Stopped || asked) return false;
         asked = true;
         return true;
     }
+}
+
+static class RdpInputSettings
+{
+    public static string Apply(dynamic client) {
+        try { client.SecuredSettings2.KeyboardHookMode = 1; return null; }
+        catch (Exception ex) { return HostInstallation.Limit("Remote keyboard routing could not be set. Use Alt+Home for the child Start menu; click the companion column to leave the viewer. " + ex.Message, 512); }
+    }
+    public static void Connect(dynamic client, Action<string> report) { string diagnostic = Apply(client); if (diagnostic != null) report(diagnostic); client.Connect(); }
 }
 
 sealed class SessionRequestGate

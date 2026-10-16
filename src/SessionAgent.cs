@@ -109,6 +109,7 @@ static class HostNative
     [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr OpenProcess(uint access, bool inherit, uint id);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder path, ref uint length);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool GetProcessTimes(IntPtr process, out long created, out long exited, out long kernel, out long user);
     [DllImport("kernel32.dll", SetLastError = true)] public static extern bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint id);
     [DllImport("kernel32.dll", SetLastError = true)] public static extern bool GetNamedPipeServerProcessId(SafePipeHandle pipe, out uint id);
     [DllImport("kernel32.dll")] public static extern uint WTSGetActiveConsoleSessionId();
@@ -135,12 +136,33 @@ static class HostNative
         foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(executablePath)))
         using (process) {
             int session = -1;
-            try { session = process.SessionId; result.Add(new HostProcess(session, ProcessPath((uint)process.Id), false)); }
+            try { session = process.SessionId; result.Add(new HostProcess(session, ProcessPath((uint)process.Id), false, process.Id, ProcessStartTicks(process.Id), null)); }
             catch (InvalidOperationException) { } // Process exited during enumeration.
             catch (ArgumentException) { }
             catch (Win32Exception) { result.Add(new HostProcess(session, null, true)); }
         }
         return result.ToArray();
+    }
+    static long ProcessStartTicks(int pid) {
+        IntPtr handle = OpenProcess(0x1000, false, (uint)pid);
+        if (handle == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+        try { long created, exited, kernel, user; if (!GetProcessTimes(handle, out created, out exited, out kernel, out user)) throw new Win32Exception(Marshal.GetLastWin32Error()); return DateTime.FromFileTimeUtc(created).Ticks; }
+        finally { CloseHandle(handle); }
+    }
+    public static HostLaunchReceipt StartHost(ChildHostProfile profile) {
+        if (profile.CurrentIdentity() != profile.Identity) throw new IOException("The child host configuration changed. Refresh and confirm startup again.");
+        if (HostPorts.Collides(profile.BasePort, HostPorts.Occupied())) throw new IOException("A child-host TCP or UDP port is already in use. No existing listener was stopped. Close the conflicting app or change the child configuration.");
+        HostLaunchSpec spec = HostProfiles.Adapter(profile.Installation).BuildLaunch(profile);
+        var start = new ProcessStartInfo(spec.Executable, NativeArguments.Join(spec.Arguments)) {
+            UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = spec.WorkingDirectory
+        };
+        using (var process = Process.Start(start)) {
+            if (process == null) throw new IOException("Windows did not return a child host process.");
+            long ticks = ProcessStartTicks(process.Id);
+            if (process.WaitForExit(1200)) throw new IOException("The child host exited during startup (exit code " + process.ExitCode + "). Check " + Path.Combine(profile.DataDirectory, "sunshine.log") + ".");
+            if (process.SessionId != CurrentSession() || !HostController.SamePath(ProcessPath((uint)process.Id), spec.Executable)) throw new IOException("The host did not start in this child desktop.");
+            return new HostLaunchReceipt(process.Id, ticks, profile.Identity);
+        }
     }
     public static void StartHost(HostConfiguration config)
     {

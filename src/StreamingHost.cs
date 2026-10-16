@@ -36,6 +36,8 @@ sealed class HostConfiguration
         };
     }
 
+    public static HostConfiguration ForProfile(ChildHostProfile profile) { return new HostConfiguration { BaseDirectory = profile.DataDirectory, ExecutablePath = profile.Installation.ExecutablePath, ConfigPath = profile.ConfigPath }; }
+
     public static bool IsValidPort(int port) { return port >= 6 && port <= 65514; }
 
     public static int ParsePort(string text)
@@ -66,9 +68,15 @@ sealed class HostProcess
     public int SessionId { get; private set; }
     public string ExecutablePath { get; private set; }
     public bool InspectionDenied { get; private set; }
+    public int ProcessId { get; private set; }
+    public long StartTimeUtcTicks { get; private set; }
+    public string ConfigPath { get; private set; }
     public HostProcess(int sessionId, string executablePath, bool inspectionDenied)
+        : this(sessionId, executablePath, inspectionDenied, 0, 0, null) { }
+    public HostProcess(int sessionId, string executablePath, bool inspectionDenied, int pid, long ticks, string configPath)
     {
         SessionId = sessionId; ExecutablePath = executablePath; InspectionDenied = inspectionDenied;
+        ProcessId = pid; StartTimeUtcTicks = ticks; ConfigPath = configPath;
     }
 }
 
@@ -79,6 +87,9 @@ sealed class HostController
     readonly int sessionId;
     readonly Func<HostProcess[]> processes;
     readonly Action launch;
+    readonly ChildHostProfile profile;
+    readonly Func<HostLaunchReceipt> profileLaunch;
+    HostLaunchReceipt receipt;
     bool starting;
     string lastError;
 
@@ -86,6 +97,12 @@ sealed class HostController
     {
         if (sessionId <= 0) throw new ArgumentOutOfRangeException("sessionId");
         this.config = config; this.sessionId = sessionId; this.processes = processes; this.launch = launch;
+    }
+
+    public HostController(ChildHostProfile profile, int sessionId, Func<HostProcess[]> processes, Func<HostLaunchReceipt> launch)
+        : this(HostConfiguration.ForProfile(profile), sessionId, processes, (Action)null)
+    {
+        this.profile = profile; profileLaunch = launch; receipt = HostLaunchReceipt.Load(profile.ReceiptPath);
     }
 
     public static bool SamePath(string left, string right)
@@ -111,6 +128,10 @@ sealed class HostController
         int port;
         try { port = HostConfiguration.ParsePort(File.ReadAllText(config.ConfigPath)); }
         catch (Exception ex) { return new HostSnapshot(HostState.Error, "Cannot read Sunshine settings: " + ex.Message, 0); }
+        if (profile != null) {
+            try { if (profile.CurrentIdentity() != profile.Identity) return new HostSnapshot(HostState.Unknown, "Child host settings changed. Refresh the selected host before starting or pairing.", 0); }
+            catch (Exception ex) { return new HostSnapshot(HostState.Error, "Cannot verify child host settings: " + ex.Message, 0); }
+        }
         bool unknown = false;
         try
         {
@@ -120,13 +141,14 @@ sealed class HostController
                 if (process.InspectionDenied) { unknown = true; continue; }
                 if (process.SessionId == sessionId && SamePath(process.ExecutablePath, config.ExecutablePath))
                 {
+                    if (profile != null && (process.ConfigPath != null ? !SamePath(process.ConfigPath, profile.ConfigPath) : receipt == null || !receipt.Matches(process, profile.Identity))) { unknown = true; continue; }
                     lastError = null;
-                    return new HostSnapshot(HostState.Running, "Sunshine is running in the child desktop. Pairing and capture depend on your host settings.", port);
+                    return new HostSnapshot(HostState.Running, "The host is running in the child desktop. Streaming still depends on host capture and client settings.", port);
                 }
             }
         }
         catch (Exception ex) { return new HostSnapshot(HostState.Unknown, "Cannot inspect the host process: " + ex.Message, port); }
-        if (unknown) return new HostSnapshot(HostState.Unknown, "Windows denied host-process inspection. A host may already be running; another will not be started.", port);
+        if (unknown) return new HostSnapshot(HostState.Unknown, "A child host may already be running, but its process or configuration could not be verified. Another will not be started. Restart that host through ChildStream to identify its settings.", 0);
         if (starting) return new HostSnapshot(HostState.Starting, "Starting Sunshine. Approve Windows elevation inside the child desktop if asked.", port);
         if (lastError != null) return new HostSnapshot(HostState.Error, lastError, port);
         return new HostSnapshot(HostState.Stopped, "Sunshine is off in the child desktop. Start it to make this desktop available to your client.", port);
@@ -142,7 +164,15 @@ sealed class HostController
             lastError = null;
             var worker = new Thread(delegate() {
                 string error = null;
-                try { launch(); }
+                try {
+                    if (profile == null) launch();
+                    else {
+                        HostLaunchReceipt launched = profileLaunch();
+                        if (launched == null || launched.ProfileIdentity != profile.Identity) throw new IOException("The launched host did not return a matching process identity.");
+                        lock (gate) { receipt = launched; }
+                        try { launched.Save(profile.ReceiptPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                    }
+                }
                 catch (Win32Exception ex) {
                     error = ex.NativeErrorCode == 1223 ? "Windows canceled Sunshine startup. You can try again and approve elevation inside the child desktop." : "Could not start Sunshine: " + ex.Message;
                 }

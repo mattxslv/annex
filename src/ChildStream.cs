@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -22,10 +24,16 @@ public class RdpBox : AxHost
 
 static class Program
 {
-    [DllImport("wtsapi32.dll", SetLastError = true)]
+    [DllImport("wtsapi32.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
     static extern bool WTSEnableChildSessions(bool enable);
-    [DllImport("wtsapi32.dll")]
+    [DllImport("wtsapi32.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
     static extern bool WTSIsChildSessionsEnabled(out bool enabled);
+    [DllImport("wtsapi32.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
+    static extern bool WTSGetChildSessionId(out uint sessionId);
+    [DllImport("wtsapi32.dll", SetLastError = true)]
+    static extern bool WTSLogoffSession(IntPtr server, uint sessionId, bool wait);
+    [DllImport("kernel32.dll")]
+    static extern uint WTSGetActiveConsoleSessionId();
 
     static string baseDir = AppDomain.CurrentDomain.BaseDirectory;
     static string logPath = Path.Combine(baseDir, "launcher.log");
@@ -53,16 +61,37 @@ static class Program
         catch (Exception ex) { Log("cred save failed: " + ex.Message); }
     }
 
+    static bool ClearPassword()
+    {
+        try { File.Delete(credPath); return true; }
+        catch (Exception ex) { Log("cred delete failed: " + ex.Message); return false; }
+    }
+
+    static uint GetChildSessionId()
+    {
+        uint sessionId;
+        if (!WTSGetChildSessionId(out sessionId)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return sessionId;
+    }
+
+    static void LogoffChildSession(uint sessionId)
+    {
+        if (!WTSLogoffSession(IntPtr.Zero, sessionId, false)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        Log("signout requested for child session " + sessionId);
+    }
+
     static string PromptPassword(string account)
     {
-        var d = new Form { Text = "Child Session - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false };
-        var lbl = new Label { Text = "Enter the Windows password for " + account + "\n(stored DPAPI-encrypted, used to auto-login the child session):", Left = 12, Top = 12, Width = 400, Height = 36 };
-        var tb = new TextBox { Left = 12, Top = 56, Width = 398, UseSystemPasswordChar = true };
-        var ok = new Button { Text = "Save", Left = 246, Top = 92, Width = 80, DialogResult = DialogResult.OK };
-        var cancel = new Button { Text = "Cancel", Left = 332, Top = 92, Width = 80, DialogResult = DialogResult.Cancel };
-        d.Controls.AddRange(new Control[] { lbl, tb, ok, cancel });
-        d.AcceptButton = ok; d.CancelButton = cancel;
-        return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
+        using (var d = new Form { Text = "Child Session - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false })
+        {
+            var lbl = new Label { Text = "Enter the Windows password for " + account + "\n(stored DPAPI-encrypted, used to auto-login the child session):", Left = 12, Top = 12, Width = 400, Height = 36 };
+            var tb = new TextBox { Left = 12, Top = 56, Width = 398, UseSystemPasswordChar = true };
+            var ok = new Button { Text = "Save", Left = 246, Top = 92, Width = 80, DialogResult = DialogResult.OK };
+            var cancel = new Button { Text = "Cancel", Left = 332, Top = 92, Width = 80, DialogResult = DialogResult.Cancel };
+            d.Controls.AddRange(new Control[] { lbl, tb, ok, cancel });
+            d.AcceptButton = ok; d.CancelButton = cancel;
+            return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
+        }
     }
 
     [STAThread]
@@ -73,23 +102,23 @@ static class Program
             bool ok = WTSEnableChildSessions(true);
             int err = Marshal.GetLastWin32Error();
             bool en1;
-            WTSIsChildSessionsEnabled(out en1);
+            bool checkedState = WTSIsChildSessionsEnabled(out en1);
             Log("WTSEnableChildSessions(true) => " + ok + " (gle=" + err + "), enabled now = " + en1);
-            return en1 ? 0 : 1;
+            return ok && checkedState && en1 ? 0 : 1;
         }
         if (args.Length > 0 && args[0] == "-check")
         {
             bool en2;
-            WTSIsChildSessionsEnabled(out en2);
+            bool checkedState = WTSIsChildSessionsEnabled(out en2);
             Log("child sessions enabled = " + en2);
-            return en2 ? 0 : 1;
+            return checkedState && en2 ? 0 : 1;
         }
-        if (args.Length > 0 && args[0] == "-resetpass") { try { File.Delete(credPath); } catch { } return 0; }
+        if (args.Length > 0 && args[0] == "-resetpass") return ClearPassword() ? 0 : 1;
 
         bool en;
-        WTSIsChildSessionsEnabled(out en);
+        bool stateKnown = WTSIsChildSessionsEnabled(out en);
         Log("startup: child sessions enabled = " + en);
-        if (!en)
+        if (!stateKnown || !en)
         {
             MessageBox.Show("Child sessions are not enabled.\nRun once from an elevated prompt:  ChildStream.exe -enable", "ChildStream");
             return 1;
@@ -106,7 +135,7 @@ static class Program
             SavePassword(pw);
         }
 
-        bool[] endRequested = { false };
+        bool endRequested = false;
         var f = new Form { Text = "Child Session", Width = 1360, Height = 820 };
         Icon appIcon = SystemIcons.Application;
         try { appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
@@ -116,33 +145,31 @@ static class Program
         menu.Items.Add("Show", null, (s, e) => { f.Show(); f.WindowState = FormWindowState.Normal; f.Activate(); });
         ToolStripMenuItem reconnectItem = new ToolStripMenuItem("Reconnect now");
         menu.Items.Add(reconnectItem);
-        menu.Items.Add("Forget saved password", null, (s, e) => { try { File.Delete(credPath); } catch { } tray.ShowBalloonTip(2000, "Child Session", "Password cleared. Restart the app.", ToolTipIcon.Info); });
+        menu.Items.Add("Forget saved password", null, (s, e) => {
+            bool cleared = ClearPassword();
+            tray.ShowBalloonTip(2000, "Child Session", cleared ? "Password cleared. Restart the app." : "Could not clear the password. Check file permissions and launcher.log.", cleared ? ToolTipIcon.Info : ToolTipIcon.Error);
+        });
         menu.Items.Add("End session (sign out, closes games)", null, (s, e) =>
         {
             if (MessageBox.Show("Sign out the child session? All apps running in it will close.", "Child Session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-            endRequested[0] = true;
+            if (endRequested) return;
+            endRequested = true;
             try
             {
-                var psi = new System.Diagnostics.ProcessStartInfo("qwinsta") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
-                var proc = System.Diagnostics.Process.Start(psi);
-                string outp = proc.StandardOutput.ReadToEnd();
-                proc.WaitForExit();
-                foreach (var line in outp.Split('\n'))
-                {
-                    if (line.Contains(Environment.UserName) && !line.Contains("console"))
-                    {
-                        var m = System.Text.RegularExpressions.Regex.Match(line, @"\s(\d+)\s");
-                        if (m.Success)
-                        {
-                            Log("signing out session " + m.Groups[1].Value);
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("logoff", m.Groups[1].Value) { UseShellExecute = false, CreateNoWindow = true });
-                        }
-                    }
-                }
+                var sessions = new ChildSessionController(GetChildSessionId, LogoffChildSession);
+                using (var process = Process.GetCurrentProcess())
+                    sessions.EndSession((uint)process.SessionId, WTSGetActiveConsoleSessionId());
             }
-            catch (Exception ex) { Log("signout: " + ex.Message); }
+            catch (Exception ex)
+            {
+                endRequested = false;
+                Log("signout failed: " + ex.Message);
+                MessageBox.Show("Could not sign out the child session.\n" + ex.Message, "Child Session", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            reconnectItem.Enabled = false;
             var quitTimer = new Timer { Interval = 3000 };
-            quitTimer.Tick += delegate { tray.Visible = false; Application.Exit(); };
+            quitTimer.Tick += delegate { quitTimer.Stop(); quitTimer.Dispose(); tray.Visible = false; Application.Exit(); };
             quitTimer.Start();
         });
         menu.Items.Add("Exit", null, (s, e) => { tray.Visible = false; Application.Exit(); });
@@ -156,6 +183,13 @@ static class Program
         f.Controls.Add(rdp);
         rdp.CreateControl();
         dynamic ocx = rdp.Ocx;
+        var displayScale = new RdpScaleSettings(
+            name => {
+                object value;
+                ((IMsRdpExtendedSettings)rdp.Ocx).get_Property(name, out value);
+                return value;
+            },
+            (name, value) => { ((IMsRdpExtendedSettings)rdp.Ocx).put_Property(name, ref value); });
 
         bool wantReconnect = true;
         Action connect = () =>
@@ -165,34 +199,25 @@ static class Program
                 ocx.Server = "localhost";
                 ocx.UserName = account;
                 ocx.AdvancedSettings2.ClearTextPassword = pw;
-                int dw = 1920, dh = 1080, scale = 0;
+                DisplaySettings display = DisplaySettings.Parse(null);
                 try
                 {
                     string cfg = Path.Combine(baseDir, "display.cfg");
                     if (File.Exists(cfg))
                     {
-                        var parts = File.ReadAllText(cfg).Trim().Split('x');
-                        dw = int.Parse(parts[0]); dh = int.Parse(parts[1]);
-                        if (parts.Length > 2) scale = int.Parse(parts[2]);
+                        display = DisplaySettings.Parse(File.ReadAllText(cfg));
                     }
                 }
                 catch (Exception ex) { Log("display.cfg: " + ex.Message); }
-                ocx.DesktopWidth = dw;
-                ocx.DesktopHeight = dh;
+                ocx.DesktopWidth = display.Width;
+                ocx.DesktopHeight = display.Height;
                 try { ocx.AdvancedSettings2.SmartSizing = true; } catch { }
-                if (scale > 0)
+                try
                 {
-                    try
-                    {
-                        object ds = (uint)scale;
-                        var extS = (IMsRdpExtendedSettings)rdp.Ocx;
-                        extS.put_Property("DesktopScaleFactor", ref ds);
-                        object dev = (uint)180;
-                        extS.put_Property("DeviceScaleFactor", ref dev);
-                        Log("scale " + scale + "% applied");
-                    }
-                    catch (Exception ex) { Log("scale: " + ex.Message); }
+                    displayScale.Apply(display.Scale);
+                    if (display.Scale > 0) Log("scale " + display.Scale + "% applied");
                 }
+                catch (Exception ex) { Log("scale: " + ex.Message); }
                 try { ocx.ColorDepth = 32; } catch { }
                 try { ocx.AdvancedSettings7.EnableCredSspSupport = true; } catch { }
                 object v = true;
@@ -204,10 +229,17 @@ static class Program
             catch (Exception ex) { Log("connect failed: " + ex.Message); }
         };
 
-        reconnectItem.Click += (s, e) => { try { if ((int)ocx.Connected != 0) ocx.Disconnect(); } catch { } };
-
         int last = -1;
         DateTime lastAttempt = DateTime.MinValue;
+        reconnectItem.Click += (s, e) => {
+            if (endRequested) return;
+            try
+            {
+                if ((int)ocx.Connected != 0) ocx.Disconnect();
+                else { lastAttempt = DateTime.UtcNow; connect(); }
+            }
+            catch (Exception ex) { Log("reconnect: " + ex.Message); }
+        };
         var timer = new Timer { Interval = 2000 };
         timer.Tick += delegate
         {
@@ -215,9 +247,9 @@ static class Program
             {
                 int state = (int)ocx.Connected;
                 if (state != last) { last = state; Log("state -> " + state); f.Text = state == 1 ? "Child Session - connected" : "Child Session - state " + state; }
-                if (state == 0 && wantReconnect && !endRequested[0] && (DateTime.Now - lastAttempt).TotalSeconds > 5)
+                if (state == 0 && wantReconnect && !endRequested && (DateTime.UtcNow - lastAttempt).TotalSeconds > 5)
                 {
-                    lastAttempt = DateTime.Now;
+                    lastAttempt = DateTime.UtcNow;
                     Log("auto-reconnect");
                     connect();
                 }
@@ -227,8 +259,12 @@ static class Program
         timer.Start();
 
         f.FormClosing += (s, e) => { wantReconnect = false; tray.Visible = false; };
+        lastAttempt = DateTime.UtcNow;
         connect();
         Application.Run(f);
+        timer.Dispose();
+        tray.Dispose();
+        menu.Dispose();
         return 0;
     }
 }

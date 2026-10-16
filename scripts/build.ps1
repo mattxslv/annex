@@ -14,6 +14,8 @@ try {
         '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Security.dll', '/r:Microsoft.CSharp.dll')
     $icon = Join-Path $root 'app.ico'
     if (Test-Path -LiteralPath $icon -PathType Leaf) { $compilerArgs += "/win32icon:$icon" }
+    $manifest = Join-Path $root 'app.manifest'
+    if (Test-Path -LiteralPath $manifest -PathType Leaf) { $compilerArgs += "/win32manifest:$manifest" }
     $compilerArgs += @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Filter '*.cs' | ForEach-Object FullName)
     & $csc @compilerArgs
     if ($LASTEXITCODE -ne 0) { throw "Launcher compilation failed (exit code $LASTEXITCODE)." }

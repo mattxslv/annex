@@ -56,6 +56,7 @@ static class RegressionTests
             "unsafe or incorrect logoff target");
     }
 
+    [STAThread]
     public static int Main()
     {
         Check("default display", delegate { Settings(null, 1920, 1080, 0); });
@@ -155,6 +156,7 @@ static class RegressionTests
         });
         StreamingHostTests.Run(Check);
         SessionAgentTests.Run(Check);
+        LauncherTests.Run(Check);
         Console.WriteLine("C#: " + (checks - failures) + "/" + checks + " passed");
         return failures == 0 ? 0 : 1;
     }

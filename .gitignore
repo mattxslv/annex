@@ -5,6 +5,8 @@
 cred.bin
 monitors.csv
 sunshine-lite.zip
+dist/
+.impeccable/review/
 
 # local Sunshine install (downloaded by setup.ps1)
 Sunshine/

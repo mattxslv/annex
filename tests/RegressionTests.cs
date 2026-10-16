@@ -155,6 +155,7 @@ static class RegressionTests
                 "partly applied override was not restored");
         });
         DesktopSetupTests.Run(Check);
+        HostDiscoveryTests.Run(Check);
         StreamingHostTests.Run(Check);
         SessionAgentTests.Run(Check);
         LauncherTests.Run(Check);

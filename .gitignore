@@ -3,6 +3,7 @@
 *.log
 *.marker
 cred.bin
+host-selection.txt
 monitors.csv
 sunshine-lite.zip
 dist/

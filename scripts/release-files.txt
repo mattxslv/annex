@@ -26,6 +26,8 @@ scripts/release-files.txt
 src/ChildStream.cs
 src/ChildStream.Core.cs
 src/DesktopSetup.cs
+src/HostDiscovery.cs
+src/NativeHostDiscovery.cs
 src/StreamingHost.cs
 src/SessionAgent.cs
 src/LauncherPolicy.cs
@@ -33,6 +35,7 @@ src/LauncherWindow.cs
 src/LauncherApplication.cs
 tests/RegressionTests.cs
 tests/DesktopSetupTests.cs
+tests/HostDiscoveryTests.cs
 tests/StreamingHostTests.cs
 tests/SessionAgentTests.cs
 tests/LauncherTests.cs

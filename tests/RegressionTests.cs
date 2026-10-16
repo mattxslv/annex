@@ -153,6 +153,7 @@ static class RegressionTests
             Assert((uint)properties["DesktopScaleFactor"] == 100 && (uint)properties["DeviceScaleFactor"] == 100,
                 "partly applied override was not restored");
         });
+        StreamingHostTests.Run(Check);
         Console.WriteLine("C#: " + (checks - failures) + "/" + checks + " passed");
         return failures == 0 ? 0 : 1;
     }

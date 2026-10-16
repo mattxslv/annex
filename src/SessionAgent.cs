@@ -182,22 +182,28 @@ sealed class AgentClient
     public AgentClient(string baseDirectory) { root = baseDirectory; }
     public HostSnapshot Request(uint childSessionId, string command)
     {
+        if (command != "STATUS") return new HostSnapshot(HostState.Unavailable, "Use the updated host selection flow before confirming startup.", 0);
+        return Request(childSessionId, new AgentRequest { Command = "STATUS" }).Status;
+    }
+    public AgentReply Request(uint childSessionId, AgentRequest request)
+    {
         try {
-            PipeProtocol.ValidateCommand(command);
+            string encoded = AgentCodec.Encode(request);
             uint reported;
             bool found = HostNative.WTSGetChildSessionId(out reported);
-            if (!PeerIdentity.MatchesChild(childSessionId, reported, found, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId())) return new HostSnapshot(HostState.Unavailable, "Connect the actual child desktop before controlling its host.", 0);
+            if (!PeerIdentity.MatchesChild(childSessionId, reported, found, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId())) return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Connect the actual child desktop before controlling its host.", 0) };
             string sid; using (var identity = WindowsIdentity.GetCurrent()) sid = identity.User.Value;
             using (var pipe = new NamedPipeClientStream(".", PipeIdentity.Name(root, sid, childSessionId), PipeDirection.InOut, PipeOptions.Asynchronous, TokenImpersonationLevel.Identification)) {
                 pipe.Connect(750); uint pid;
                 if (!HostNative.GetNamedPipeServerProcessId(pipe.SafePipeHandle, out pid)) throw new Win32Exception(Marshal.GetLastWin32Error());
                 HostProcess peer = HostNative.Peer(pid);
                 if (!PeerIdentity.IsServer(peer.ExecutablePath, peer.SessionId, System.Windows.Forms.Application.ExecutablePath, childSessionId)) throw new UnauthorizedAccessException("The helper's application or Windows session does not match.");
-                PipeProtocol.WriteText(pipe, command, 2000);
-                return PipeProtocol.Decode(PipeProtocol.ReadText(pipe, 2500));
+                PipeProtocol.WriteText(pipe, encoded, 2000);
+                return AgentCodec.DecodeReply(PipeProtocol.ReadText(pipe, 2500));
             }
         }
-        catch (Exception ex) { return new HostSnapshot(HostState.Unavailable, "Child helper unavailable. Run setup, then sign out/reconnect the child desktop, or run scripts\\childsession-autostart.ps1 inside it. " + ex.Message, 0); }
+        catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper upgrade/repair required. Restart this folder's ChildStream.exe -agent inside the child desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
+        catch (Exception ex) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the child desktop. " + ex.Message, 0) }; }
     }
 }
 
@@ -224,8 +230,9 @@ static class SessionAgent
             string name = PipeIdentity.Name(baseDirectory, user.Value, (uint)session); bool created;
             using (var singleton = new Mutex(false, "Local\\" + name + ".Agent", out created)) {
                 if (!created) return 0;
-                var config = HostConfiguration.Load(baseDirectory);
-                var host = new HostController(config, session, () => HostNative.Processes(config.ExecutablePath), () => HostNative.StartHost(config));
+                var service = new AgentService(baseDirectory, session, new NativeHostDiscovery(), HostNative.Processes, HostNative.StartHost, () => {
+                    uint actual; return WtsChildIsCurrent(session, out actual);
+                });
                 var security = CreatePipeSecurity(user);
                 for (;;)
                 using (var pipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096, security)) {
@@ -235,9 +242,11 @@ static class SessionAgent
                         if (!HostNative.GetNamedPipeClientProcessId(pipe.SafePipeHandle, out pid)) throw new Win32Exception(Marshal.GetLastWin32Error());
                         HostProcess peer = HostNative.Peer(pid);
                         if (!PeerIdentity.IsCaller(peer.ExecutablePath, peer.SessionId, System.Windows.Forms.Application.ExecutablePath, session)) throw new UnauthorizedAccessException("Only this install's launcher in a parent session may control its host.");
-                        string command = PipeProtocol.ReadText(pipe, 2000); PipeProtocol.ValidateCommand(command);
-                        HostSnapshot status = command == "START" ? host.RequestStart() : host.GetStatus();
-                        PipeProtocol.WriteText(pipe, PipeProtocol.Encode(status), 2000);
+                        string command = PipeProtocol.ReadText(pipe, 2000);
+                        AgentReply reply;
+                        try { reply = service.Handle(AgentCodec.DecodeRequest(command)); }
+                        catch (InvalidDataException) { reply = new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Helper upgrade/repair required. This helper requires protocol version 2.", 0) }; }
+                        PipeProtocol.WriteText(pipe, AgentCodec.Encode(reply), 2000);
                     }
                     catch (Exception ex) { Log(baseDirectory, "helper request failed: " + ex.Message); }
                 }
@@ -245,4 +254,5 @@ static class SessionAgent
         }
         catch (Exception ex) { Log(baseDirectory, "helper failed: " + ex.Message); return 1; }
     }
+    static bool WtsChildIsCurrent(int session, out uint actual) { return HostNative.WTSGetChildSessionId(out actual) && actual == (uint)session && actual != HostNative.WTSGetActiveConsoleSessionId(); }
 }

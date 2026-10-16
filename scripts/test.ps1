@@ -15,7 +15,7 @@ Write-Host 'PowerShell syntax checks passed'
 try {
     $sources = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Filter '*.cs' | ForEach-Object FullName)
     $testSources = @(Get-ChildItem -LiteralPath (Join-Path $root 'tests') -Filter '*.cs' | ForEach-Object FullName)
-    & $csc /nologo /warnaserror /target:exe /platform:x64 /main:RegressionTests "/out:$output" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Security.dll /r:Microsoft.CSharp.dll @sources @testSources
+    & $csc /nologo /warnaserror /target:exe /platform:x64 /main:RegressionTests "/out:$output" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Security.dll /r:Microsoft.CSharp.dll /r:System.Web.Extensions.dll @sources @testSources
     if ($LASTEXITCODE -ne 0) { throw 'Regression test compilation failed.' }
     & $output
     $csharpExitCode = $LASTEXITCODE

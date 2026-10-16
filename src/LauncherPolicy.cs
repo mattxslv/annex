@@ -48,12 +48,14 @@ sealed class SessionRequestGate
     uint child;
     bool connected;
     bool closed;
+    string selection;
     public int Generation { get; private set; }
     public void Update(uint session, bool attached)
     {
         if (child != session || connected != attached) { child = session; connected = attached; Generation++; }
     }
     public bool Accepts(int generation, uint session) { return !closed && connected && session == child && generation == Generation; }
+    public void Select(string identity) { if (selection != identity) { selection = identity; Generation++; } }
     public void Close() { closed = true; Generation++; }
 }
 

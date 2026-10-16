@@ -11,7 +11,7 @@ $output = Join-Path $root 'ChildStream.exe'
 $temporary = Join-Path $root ('ChildStream-build-' + [guid]::NewGuid().ToString('N') + '.exe')
 try {
     $compilerArgs = @('/nologo', '/warnaserror', '/target:winexe', '/platform:x64', "/out:$temporary",
-        '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Security.dll', '/r:Microsoft.CSharp.dll')
+        '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Security.dll', '/r:Microsoft.CSharp.dll', '/r:System.Web.Extensions.dll')
     $icon = Join-Path $root 'app.ico'
     if (Test-Path -LiteralPath $icon -PathType Leaf) { $compilerArgs += "/win32icon:$icon" }
     $manifest = Join-Path $root 'app.manifest'

@@ -28,6 +28,7 @@ src/ChildStream.Core.cs
 src/DesktopSetup.cs
 src/HostDiscovery.cs
 src/HostProfiles.cs
+src/AgentMessages.cs
 src/NativeHostDiscovery.cs
 src/StreamingHost.cs
 src/SessionAgent.cs
@@ -38,6 +39,7 @@ tests/RegressionTests.cs
 tests/DesktopSetupTests.cs
 tests/HostDiscoveryTests.cs
 tests/HostProfileTests.cs
+tests/AgentMessageTests.cs
 tests/StreamingHostTests.cs
 tests/SessionAgentTests.cs
 tests/LauncherTests.cs

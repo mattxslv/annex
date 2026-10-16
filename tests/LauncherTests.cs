@@ -13,6 +13,15 @@ static class LauncherTests
         return null;
     }
     static void Assert(bool value, string message) { if (!value) throw new Exception(message); }
+    static TextBox FindField(Control parent, string name)
+    {
+        foreach (Control control in parent.Controls) {
+            var field = control as TextBox;
+            if (field != null && field.AccessibleName == name) return field;
+            var found = FindField(control, name); if (found != null) return found;
+        }
+        return null;
+    }
     static bool HasText(Control parent, string text)
     {
         if (parent.Text == text) return true;
@@ -120,6 +129,67 @@ static class LauncherTests
                 Assert(!settings.Enabled, "disconnected window still offers host settings");
                 form.SetHost(new HostSnapshot(HostState.Stopped, "off", 48989));
                 Assert(!FindButton(form, "Start Sunshine").Enabled, "disconnected window offers host start");
+            }
+        });
+        check("pairing guide distinguishes host browser from client PIN", delegate {
+            string guide = LauncherPolicy.PairingInstructions("gaming-pc", new HostSnapshot(HostState.Running, "running", 50000));
+            Assert(guide.Contains("normal desktop") && guide.Contains("https://127.0.0.1:50001/"), "host browser instructions missing");
+            Assert(guide.Contains("gaming-pc:50000") && guide.Contains("PIN") && guide.Contains("Moonlight"), "client pairing steps missing");
+        });
+        check("pairing guide never invents an address for invalid settings", delegate {
+            string guide = LauncherPolicy.PairingInstructions("gaming-pc", new HostSnapshot(HostState.Missing, "missing", 0));
+            Assert(!guide.Contains("https://") && !guide.Contains("gaming-pc:0"), "invalid address was offered");
+            Assert(guide.Contains("Start") && guide.Contains("Sunshine"), "recovery instructions missing");
+        });
+        check("native window exposes the settings URL without needing a browser launch", delegate {
+            using (var form = new LauncherWindow(true)) {
+                form.SetSession("Connected", "test", true, true);
+                form.SetHost(new HostSnapshot(HostState.Running, "running", 50000));
+                var field = FindField(form, "Sunshine web UI URL");
+                Assert(field != null && field.ReadOnly && field.Text == "https://127.0.0.1:50001/", "manual browser fallback missing");
+                Assert(FindButton(form, "Copy settings URL").Enabled, "settings URL cannot be copied");
+                form.SetSession("Disconnected", "test", false, true);
+                Assert(!FindButton(form, "Copy settings URL").Enabled, "stale child URL is offered");
+            }
+        });
+        check("unavailable host disables both address copy actions", delegate {
+            using (var form = new LauncherWindow(true)) {
+                form.SetHost(new HostSnapshot(HostState.Unavailable, "missing helper", 0));
+                Assert(!FindButton(form, "Copy address").Enabled, "unknown pairing address looks copyable");
+                var copy = FindButton(form, "Copy settings URL");
+                Assert(copy != null && !copy.Enabled, "unknown settings URL looks copyable");
+            }
+        });
+        check("native desktop action exposes its current accessible name", delegate {
+            using (var form = new LauncherWindow(true)) {
+                form.SetSession("Connected", "test", true, true);
+                Assert(FindButton(form, "Show desktop") != null, "screen reader still calls the connected action Start desktop");
+            }
+        });
+        check("expanded pairing instructions retain a readable scrollable height", delegate {
+            using (var form = LauncherPreview.Create(HostState.Running)) {
+                form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new System.Drawing.Point(-20000, -20000);
+                form.Show(); Application.DoEvents();
+                FindButton(form, "Show pairing steps").PerformClick(); Application.DoEvents();
+                var guide = FindField(form, "Pairing instructions");
+                Assert(guide.Visible && guide.ClientSize.Height >= 140 && guide.ScrollBars == ScrollBars.Vertical, "guide collapsed or cannot be scrolled");
+                Assert(guide.Height <= 190, "expanded guide exceeds its height budget");
+                form.ClientSize = new System.Drawing.Size(900, 640); Application.DoEvents();
+                Assert(guide.ClientSize.Height >= 140, "compact window collapsed its instructions");
+                Assert(guide.Height <= 190, "compact guide exceeds its height budget");
+                int workspaceHeight = form.Controls.Find("DesktopWorkspace", true)[0].ClientSize.Height;
+                Assert(workspaceHeight >= 140, "compact guide consumed the desktop workspace: viewer=" + workspaceHeight + ", guide=" + guide.Height + ", pairing=" + guide.Parent.Height + ", clientRow=" + guide.Parent.Controls[0].Height + ", settingsRow=" + guide.Parent.Controls[1].Height + ", right=" + guide.Parent.Parent.Height);
+                form.Size = form.MinimumSize; Application.DoEvents();
+                var copy = FindButton(form, "Copy settings URL");
+                var copyBounds = form.RectangleToClient(copy.RectangleToScreen(copy.ClientRectangle));
+                Assert(form.ClientRectangle.Contains(copyBounds), "settings copy action clips at the actual minimum window: button=" + copyBounds + ", client=" + form.ClientRectangle);
+                form.Close();
+            }
+        });
+        check("native pairing steps retain separate Windows paragraphs", delegate {
+            using (var form = LauncherPreview.Create(HostState.Running)) {
+                string text = FindField(form, "Pairing instructions").Text;
+                Assert(text.Contains("\r\n\r\n2.") && text.Contains("\r\n\r\n3.") && text.Contains("\r\n\r\n4."), "native text box merges the numbered steps");
             }
         });
     }

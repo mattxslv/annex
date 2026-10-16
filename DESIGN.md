@@ -69,7 +69,6 @@ components:
   address-field:
     textColor: "{colors.ink}"
     typography: "{typography.body}"
-    width: "210px"
   host-status:
     textColor: "{colors.ink}"
     typography: "{typography.status}"
@@ -89,8 +88,9 @@ The native window, familiar controls and restrained palette support a working
 desktop rather than competing with it. Session identity and explicit text status
 carry the hierarchy; color reinforces that information.
 
-This documents the implemented WinForms extension in `src/LauncherWindow.cs` and
-`src/LauncherApplication.cs`, under the approved direction in
+This documents the implemented WinForms extension in `src/LauncherWindow.cs`,
+`src/LauncherPolicy.cs` and `src/LauncherApplication.cs`, under the approved
+direction in `.impeccable/surfaces/src-launcherwindow-cs.md`,
 `docs/launcher-surface.md` and `PRODUCT.md`. It is a native design system; the
 HTML/CSS snippets in `.impeccable/design.json` are documentation previews for the
 design panel and are not product components or an implementation framework.
@@ -102,13 +102,22 @@ design panel and are not product components or an implementation framework.
 - A dominant desktop workspace with a compact companion control rail.
 - Text-labelled states, actionable recovery and explicit synthetic-preview labels.
 
-The finish verdict is **ship** after correction of the initial checking state; see
-`.impeccable/review/finish-review.md` and `finish-verdict.md`. Visual evidence is
-the synthetic stopped, running, unavailable, checking, compact and large-layout
-captures in that directory. The large-layout capture uses explicit 1.5x layout
-scaling and does not validate OS DPI behavior. Live RDP/streaming, Windows
+The bounded pairing finish verdict is **ship**; see
+`.impeccable/review/pairing-finish-verdict.md`. The paragraph-separation and
+expanded-guide height findings in `pairing-finish-review.md` are resolved, with
+no further recapture required. Current visual evidence is the eight synthetic
+stopped, running, unavailable, checking, compact, large-layout, pairing and
+pairing-compact captures in `.impeccable/review/pairing-final/`. The large-layout
+capture uses explicit 1.5x layout scaling and does not validate OS DPI behavior.
+The compact layout's reduced right inset is a nonblocking spacing observation.
+
+Separate live observations of the old download showed a connected child desktop,
+Steam, mouse input, encoder discovery and host listeners. They do not certify a
+real-client stream for this change. Certificate/account interaction remains a
+human handoff; no Chrome/profile cause was established. Actual Windows
 high-contrast rendering, assistive technology and OS DPI transitions remain
-outside that review's validation.
+unvalidated. The earlier `.impeccable/review/finish-review.md` and
+`finish-verdict.md` remain review history.
 
 ## Colors
 
@@ -154,8 +163,9 @@ is specified. Windows provides font metrics and text rendering.
 
 The hierarchy in frontmatter follows the actual roles: bold brand, section and
 status labels; regular body/control text; a smaller workspace heading; and a
-larger guidance title with readable supporting copy. Client-address labels use
-the body size in bold. Preserve sentence case and concise action labels.
+larger guidance title with readable supporting copy. Client-address and Sunshine
+web UI labels use the body size in bold. Preserve sentence case and concise
+action labels.
 
 **The Native Rendering Rule.** Keep native text metrics, mnemonics and visible
 focus behavior. Do not translate a web typography convention into a new native
@@ -175,12 +185,21 @@ wrap within (252). A thin separator with `section-divider-gap` above and below
 separates the desktop and streaming-host groups. Controls auto-size; buttons have
 `control-gap` bottom and right margins.
 
-The right column uses `workspace-inset` on every side. Its toolbar and pairing row
-auto-size and wrap; the central viewer consumes the remaining height. The two
-row gaps use `workspace-row-gap`. First-run guidance uses an inset (38), a
-vertically centered message group and width recalculation on resize. The actual
-RDP control docks to fill the same workspace. A native status strip spans the
-window bottom.
+The right column uses `workspace-inset` on every side. Its toolbar auto-sizes and
+wraps; the central viewer consumes the remaining height. Below the viewer, a
+three-column native table aligns the Client address and Sunshine web UI rows:
+auto-sized labels, a stretching field column and auto-sized copy actions. Labels
+have a minimum width (112). Both text boxes dock to fill the middle column;
+their constructor widths are initial values rather than runtime width invariants.
+The table uses some of the nominal right inset in the compact and explicitly
+scaled captures; all action labels remain visible in the reviewed scope.
+
+The two row gaps use `workspace-row-gap`. The pairing toggle and optional guide
+span all three columns. The read-only, word-wrapped guide has a bounded height
+(170) and native vertical scrolling, preserving a useful compact viewer area.
+First-run guidance uses an inset (38), a vertically centered message group and
+width recalculation on resize. The actual RDP control docks to fill the same
+workspace. A native status strip spans the window bottom.
 
 Preserve this workspace dominance when extending the current launcher. Treat
 these measurements as the observed surface layout, not a general-purpose grid
@@ -225,8 +244,9 @@ follows the button's original primary flag.
 Hover, press and focus come from WinForms; the source does not set custom
 hover/pressed colors or transitions. Preserve native focus cues and the existing
 mnemonics. Main buttons have explicit accessible names with mnemonic markers
-removed. End session uses a restrained secondary treatment and an ellipsis,
-followed by a native confirmation whose default is No.
+removed. The desktop action updates its accessible name from Start desktop to
+Show desktop with its visible label. End session uses a restrained secondary
+treatment and an ellipsis, followed by a native confirmation whose default is No.
 
 ### Host status
 
@@ -244,26 +264,49 @@ states remain distinguishable without those accents.
 
 ### Client address
 
-The read-only native text box uses the frontmatter width, ink text and system
-window background. It has the accessible name Client pairing address and a
-tooltip explaining LAN-IP fallback. A validated host port produces the machine
-name and port; otherwise the field says Available after host check. A separate
-Copy address button provides clipboard feedback in the footer when a valid
-address can be copied. It currently remains enabled for an unavailable address
-and silently returns; the finish review records this as optional deferred polish.
+The read-only native text box stretches in the table's middle column, with ink
+text and system window background. It has the accessible name Client pairing
+address and a tooltip explaining LAN-IP fallback. A validated host port produces
+the machine name and port; otherwise the field says Available after host check.
+Copy address is disabled while the address is unknown or the session is ending.
+A known valid port can be copied even when Sunshine is off. Successful copy and
+clipboard failure both receive honest footer feedback.
+
+### Sunshine web UI and pairing instructions
+
+The second read-only field shares the address-field treatment and has the
+accessible name Sunshine web UI URL. A Running snapshot with a validated base
+port produces only the local `https://127.0.0.1:<base+1>/` URL. Other states show
+Available when Sunshine is running. Copy settings URL requires a connected,
+running target with a valid URL and is disabled while ending; it is disabled in
+stopped, unavailable and checking captures. Open Sunshine settings also waits
+for busy work to finish and revalidates the actual child session before sending
+the browser request.
+
+Show pairing steps expands the native read-only, scrollable instructions below
+both rows; Hide pairing steps collapses them. The toggle's accessible name follows
+its visible label. Windows CRLF paragraph boundaries separate the four numbered
+steps. Their copy directs the browser to the normal desktop, distinguishes the
+Sunshine web account from the Windows password, and explains the client PIN
+handoff into this child Sunshine instance. Later steps remain available through
+the bounded guide's native vertical scrollbar. Unknown-host guidance explains
+the prerequisite rather than showing a fabricated URL.
 
 ### Viewer and guidance
 
-The plain system-window panel contains either the docked native RDP control or
-concise first-run/setup guidance. Guidance is an empty-state message, not a card
+The plain system-window panel, named DesktopWorkspace with the accessible name
+Child desktop workspace, contains either the docked native RDP control or concise
+first-run/setup guidance. Guidance is an empty-state message, not a card
 or decorative illustration. Synthetic previews explicitly identify themselves
 in the title bar, central message and footer; their blank white workspace is an
 intentional placeholder rather than evidence of a live desktop.
 
 ### Native shell
 
-The status strip presents short feedback. The tray uses native `NotifyIcon`,
-`ContextMenuStrip`, application icon and balloon tips. Native message boxes handle
+The status strip presents short feedback. A successful shell dispatch reports
+Browser requested on this desktop and offers the displayed URL as a manual
+fallback; it does not promise that a browser window became visible. The tray uses
+native `NotifyIcon`, `ContextMenuStrip`, application icon and balloon tips. Native message boxes handle
 start-host approval, sign-out confirmation and errors. Preserve these Windows
 interaction conventions rather than adding an unrelated navigation or dialog
 design language.

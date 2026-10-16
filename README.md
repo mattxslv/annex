@@ -39,6 +39,9 @@ The suite covers configuration parsing, safe sign-out selection, credentials del
 
 ## Setup
 
+For the complete first-run and PIN sequence, see [Run ChildStream and pair a client](docs/pairing.md).
+Pair in a browser on your **normal PC desktop**; Chrome inside the child desktop is not required.
+
 Extract the portable ZIP into a permanent user-owned folder. Open an **administrator PowerShell as the Windows user who will run ChildStream**, change to that folder, then run:
 
 ```powershell
@@ -50,11 +53,11 @@ Setup builds the launcher and downloads portable Sunshine if absent, then enable
 1. Open **Child Session** from the Desktop, or `ChildStream.exe`.
 2. Select **Start desktop** and enter your Windows password. It is stored in user-scoped DPAPI-encrypted `cred.bin`.
 3. Wait for the desktop to attach. If Sunshine is off, choose whether to start it. Approve any UAC prompt **inside the child desktop** yourself. Declining leaves it stopped; **Start Sunshine** lets you retry later.
-4. When the launcher shows Sunshine running, select **Open Sunshine settings**. Configure the web UI account and pair the client using its PIN. The settings URL is local loopback on base port + 1 (normally `https://127.0.0.1:48990/`). Sunshine uses its own certificate; follow its setup documentation.
+4. When the launcher shows Sunshine running, open the displayed **Sunshine web UI** URL in a browser on your normal desktop. **Open Sunshine settings** requests the default browser; **Copy settings URL** works if that browser does not appear. Configure the Sunshine web account, then use its **PIN** tab to enter the PIN displayed on the client. The URL is local loopback on base port + 1 (normally `https://127.0.0.1:48990/`). Sunshine uses its own certificate; review its browser warning yourself. **Show pairing steps** explains the host/client sequence inside the launcher.
 5. On your client, manually add the launcher's **Client address**, normally `<host-name>:48989`. If the name cannot resolve, use the host PC's LAN IP with that port. Discovery may find another Sunshine instance on default ports, so choose this child host explicitly.
 6. Start a stream, then minimize ChildStream to the tray. Keep it running and attached while playing.
 
-**Upgrading an existing install:** close the viewer and the old `ChildStream.exe -agent` helper before replacing files; preserve the `Sunshine` folder and your runtime configuration. Rerun setup to replace the old automatic-Sunshine startup hook. Sign out and create a fresh child desktop so the helper starts, or run `scripts\childsession-autostart.ps1` manually **inside the existing child desktop**. Do not start a second parent launcher inside the child. The GUI explains recovery if the helper is unavailable.
+**Upgrading an existing install:** save child applications, end the child session when ready, and close the viewer and old `ChildStream.exe -agent` helper before replacing files; preserve the `Sunshine` folder and your runtime configuration. If upgrading from the original automatic-Sunshine startup hook, rerun setup to install the idle helper hook. A working helper-based installation does not need setup rerun for this pairing-UI update. Create a fresh child desktop so the helper starts, or run `scripts\childsession-autostart.ps1` manually **inside the existing child desktop**. Do not start a second parent launcher inside the child. See [the update instructions](docs/pairing.md#updating-an-existing-installation) for details.
 
 ## Clients and host forks
 

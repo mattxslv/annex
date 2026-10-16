@@ -10,14 +10,14 @@ sealed class LauncherWindow : Form
     readonly Color muted = SystemInformation.HighContrast ? SystemColors.WindowText : Color.FromArgb(82, 101, 121);
     readonly Color blue = SystemInformation.HighContrast ? SystemColors.Highlight : Color.FromArgb(33, 92, 221);
     readonly Label sessionTitle, sessionDetail, hostTitle, hostDetail;
-    readonly Button desktop, reconnect, startHost, settings, endSession;
-    readonly TextBox address;
+    readonly Button desktop, reconnect, startHost, settings, endSession, copyAddress, copySettings;
+    readonly TextBox address, settingsAddress, pairingHelp;
     readonly Label placeholderTitle, placeholderBody;
     readonly Panel workspace, placeholder;
     readonly ToolStripStatusLabel footer;
     readonly ToolTip tips = new ToolTip();
     HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the child desktop to check its Sunshine instance.", 0);
-    bool connected, busy, ending, setupReady = true;
+    bool connected, busy, ending, showPairingHelp, setupReady = true;
     public event EventHandler ConnectRequested, ReconnectRequested, StartHostRequested, SettingsRequested, EndSessionRequested, GuideRequested, MinimizeRequested;
     public bool Preview { get; private set; }
 
@@ -56,11 +56,19 @@ sealed class LauncherWindow : Form
         settings = Button("Open Sunshine settings", false, (s, e) => Raise(SettingsRequested)); add(settings);
         address = new TextBox { ReadOnly = true, Text = "Available after host check", Width = 210, BorderStyle = BorderStyle.FixedSingle, BackColor = SystemColors.Window, ForeColor = ink, Margin = new Padding(8, 5, 8, 0), AccessibleName = "Client pairing address" };
         tips.SetToolTip(address, "Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.");
-        var copyAddress = Button("Copy address", false, (s, e) => {
+        copyAddress = Button("Copy address", false, (s, e) => {
             if (!HostConfiguration.IsValidPort(host.BasePort)) return;
             try { Clipboard.SetText(address.Text); SetNotice("Pairing address copied."); }
             catch (Exception) { SetNotice("Clipboard is busy. Select and copy the address manually."); }
         }); copyAddress.Dock = DockStyle.None;
+        settingsAddress = new TextBox { ReadOnly = true, Text = "Available when Sunshine is running", Width = 250, BorderStyle = BorderStyle.FixedSingle, BackColor = SystemColors.Window, ForeColor = ink, Margin = new Padding(8, 5, 8, 0), AccessibleName = "Sunshine web UI URL" };
+        tips.SetToolTip(settingsAddress, "Open this on your normal PC desktop. You do not need Chrome inside the child desktop.");
+        copySettings = Button("Copy settings URL", false, (s, e) => {
+            string url = LauncherPolicy.SettingsUrl(host);
+            if (!connected || url == null) return;
+            try { Clipboard.SetText(url); SetNotice("Sunshine URL copied. Paste it into a browser on your normal desktop."); }
+            catch (Exception) { SetNotice("Clipboard is busy. Select and copy the Sunshine URL manually."); }
+        }); copySettings.Dock = DockStyle.None;
         add(Button("Setup and help", false, (s, e) => Raise(GuideRequested)));
 
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1, Padding = new Padding(24), Margin = Padding.Empty };
@@ -69,7 +77,7 @@ sealed class LauncherWindow : Form
         tools.Controls.Add(Label("Desktop preview", 11, FontStyle.Bold, ink, 8, 8));
         tools.Controls.Add(Button("Minimize to tray", false, (s, e) => Raise(MinimizeRequested)));
         endSession = Button("End session...", false, (s, e) => Raise(EndSessionRequested)); tools.Controls.Add(endSession); right.Controls.Add(tools, 0, 0);
-        workspace = new Panel { Dock = DockStyle.Fill, BackColor = SystemColors.Window, Margin = Padding.Empty };
+        workspace = new Panel { Name = "DesktopWorkspace", AccessibleName = "Child desktop workspace", Dock = DockStyle.Fill, BackColor = SystemColors.Window, Margin = Padding.Empty };
         right.Controls.Add(workspace, 0, 1);
         placeholder = new Panel { Dock = DockStyle.Fill, Padding = new Padding(38), BackColor = SystemColors.Window };
         var center = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
@@ -85,8 +93,20 @@ sealed class LauncherWindow : Form
             message.MaximumSize = new Size(width, 0);
         };
         placeholder.Resize += delegate { fitPlaceholder(); }; Shown += delegate { fitPlaceholder(); };
-        var pairing = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true, Margin = new Padding(0, 14, 0, 0) };
-        pairing.Controls.Add(Label("Client address", 9.5f, FontStyle.Bold, ink, 8, 0)); pairing.Controls.Add(address); pairing.Controls.Add(copyAddress); right.Controls.Add(pairing, 0, 2);
+        var pairing = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, ColumnCount = 3, RowCount = 4, Margin = new Padding(0, 14, 0, 0) };
+        pairing.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); pairing.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pairing.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        for (int row = 0; row < 4; row++) pairing.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var clientLabel = Label("Client address", 9.5f, FontStyle.Bold, ink, 8, 0); clientLabel.MinimumSize = new Size(112, 0); clientLabel.MaximumSize = Size.Empty;
+        address.Dock = DockStyle.Fill; settingsAddress.Dock = DockStyle.Fill;
+        pairing.Controls.Add(clientLabel, 0, 0); pairing.Controls.Add(address, 1, 0); pairing.Controls.Add(copyAddress, 2, 0);
+        var settingsLabel = Label("Sunshine web UI", 9.5f, FontStyle.Bold, ink, 8, 0); settingsLabel.MinimumSize = new Size(112, 0); settingsLabel.MaximumSize = Size.Empty;
+        pairing.Controls.Add(settingsLabel, 0, 1); pairing.Controls.Add(settingsAddress, 1, 1); pairing.Controls.Add(copySettings, 2, 1);
+        pairingHelp = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, WordWrap = true, MinimumSize = new Size(0, 170), Dock = DockStyle.Top, BackColor = SystemColors.Window, ForeColor = ink, Margin = new Padding(0, 3, 0, 8), Visible = false, AccessibleName = "Pairing instructions" };
+        var steps = Button("Show pairing steps", false, null); steps.Dock = DockStyle.None; steps.Name = "PairingSteps";
+        steps.Click += delegate { showPairingHelp = !showPairingHelp; pairingHelp.Visible = showPairingHelp; steps.Text = showPairingHelp ? "Hide pairing steps" : "Show pairing steps"; steps.AccessibleName = steps.Text; };
+        pairing.Controls.Add(steps, 0, 2); pairing.SetColumnSpan(steps, 3); pairing.Controls.Add(pairingHelp, 0, 3); pairing.SetColumnSpan(pairingHelp, 3);
+        pairing.Resize += delegate { pairingHelp.MaximumSize = new Size(Math.Max(200, pairing.ClientSize.Width - 12), 170); };
+        right.Controls.Add(pairing, 0, 2);
         SetHost(host); UpdateActions();
     }
 
@@ -118,6 +138,8 @@ sealed class LauncherWindow : Form
         startHost.Enabled = !busy && !ending && LauncherPolicy.CanStartHost(host, connected);
         settings.Visible = host.State == HostState.Running;
         settings.Enabled = connected && !busy && !ending && LauncherPolicy.SettingsUrl(host) != null;
+        copyAddress.Enabled = !ending && HostConfiguration.IsValidPort(host.BasePort);
+        copySettings.Enabled = connected && !ending && LauncherPolicy.SettingsUrl(host) != null;
         desktop.Tag = !connected; StyleButton(desktop);
         endSession.Enabled = connected && !ending && !Preview;
     }
@@ -128,6 +150,7 @@ sealed class LauncherWindow : Form
     {
         connected = attached; setupReady = ready; sessionTitle.Text = title; sessionDetail.Text = detail;
         desktop.Text = attached ? "Show &desktop" : "&Start desktop";
+        desktop.AccessibleName = desktop.Text.Replace("&", "");
         UpdateActions();
     }
     public void SetHost(HostSnapshot value)
@@ -138,6 +161,8 @@ sealed class LauncherWindow : Form
         hostDetail.Text = value.Message.Length > 230 ? value.Message.Substring(0, 227) + "..." : value.Message;
         hostDetail.AccessibleDescription = value.Message; tips.SetToolTip(hostDetail, value.Message);
         address.Text = HostConfiguration.IsValidPort(value.BasePort) ? (Preview ? "gaming-pc" : Environment.MachineName) + ":" + value.BasePort : "Available after host check";
+        settingsAddress.Text = LauncherPolicy.SettingsUrl(value) ?? "Available when Sunshine is running";
+        pairingHelp.Text = LauncherPolicy.PairingInstructions(Preview ? "gaming-pc" : Environment.MachineName, value);
         UpdateActions();
     }
     public void ShowGuidance(string title, string body)
@@ -175,6 +200,12 @@ static class LauncherPreview
             form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
             form.Show(); Application.DoEvents();
             using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, state.ToString().ToLowerInvariant() + ".png"), ImageFormat.Png); }
+            if (state == HostState.Running) {
+                ((Button)form.Controls.Find("PairingSteps", true)[0]).PerformClick(); Application.DoEvents();
+                using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, "pairing.png"), ImageFormat.Png); }
+                form.ClientSize = new Size(900, 640); Application.DoEvents();
+                using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, "pairing-compact.png"), ImageFormat.Png); }
+            }
             if (state == HostState.Stopped) {
                 form.ClientSize = new Size(900, 640); Application.DoEvents();
                 using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, "compact.png"), ImageFormat.Png); }

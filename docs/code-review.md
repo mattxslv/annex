@@ -61,8 +61,21 @@ The native finish review accepted the scored checking-state correction after fre
 stopped/running/unavailable/compact/enlarged/checking captures. These are labelled
 synthetic previews, not real session, capture or OS DPI evidence. Native Tab focus,
 Return on Reconnect and Space on simulated Start Sunshine were exercised safely.
-Optional UI polish remains: Copy address is enabled without a known address and
-does nothing in that case.
+The pairing follow-up disables Copy address when no address is known, shows the
+validated web UI URL with a manual-copy fallback, and adds inline PIN-pairing steps.
+Both host and client destinations are explicit, so a browser inside the child is
+not required. A regression also keeps expanded instructions readable after resizing.
+
+During the follow-up, a real child desktop was observed connected with Steam
+rendering and mouse input working. Its managed Sunshine process listened on the
+configured stream and web UI ports, separately from a console host on default
+ports. Sunshine detected H.264/HEVC NVENC encoders. The web UI was accepting TCP
+connections, but certificate review and first-time credentials required human
+interaction. The normal URL handler did not visibly open a browser in the test;
+this motivated exposing the manual URL and recovery text. Real client pairing and
+audio/video/input streaming were not certified by those observations. Chrome was
+observed in the parent session; a shared-profile conflict in the child remains a
+possible cause, not a confirmed diagnosis. See [the pairing guide](pairing.md).
 
 Release packaging uses an explicit source-file allowlist. ZIP-content tests seed
 harmless credential/log/host/Git/scratch stand-ins and verify they never enter the

@@ -46,7 +46,8 @@ sealed class LauncherApplication : IDisposable
         window.StartHostRequested += delegate { ConfirmStart(); };
         window.SettingsRequested += delegate {
             string url = LauncherPolicy.SettingsUrl(host);
-            if (url != null && StillConnected(child)) TryOpen(url);
+            if (url != null && StillConnected(child) && TryOpen(url))
+                window.SetNotice("Browser requested on this desktop. If nothing opens, copy the Sunshine web UI URL below into Chrome.");
         };
         window.GuideRequested += delegate {
             string readme = Path.Combine(root, "README.md");
@@ -72,10 +73,10 @@ sealed class LauncherApplication : IDisposable
 
     public int Run() { timer.Start(); Application.Run(window); return 0; }
     void Show() { window.Show(); window.WindowState = FormWindowState.Normal; window.Activate(); }
-    void TryOpen(string target)
+    bool TryOpen(string target)
     {
-        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
-        catch (Exception ex) { window.SetNotice("Could not open it: " + ex.Message); }
+        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); return true; }
+        catch (Exception ex) { Program.Log("open failed: " + ex.Message); window.SetNotice("Could not open it: " + ex.Message + ". Copy the displayed URL and open it manually."); return false; }
     }
     int State()
     {

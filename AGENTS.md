@@ -8,6 +8,19 @@ on the local `review/reliability` branch. It is a Windows x64 WinForms launcher
 using the installed .NET Framework 4.x compiler, with PowerShell setup scripts.
 See `README.md` and `docs/code-review.md` for behavior and remaining limitations.
 
+## Delivery and local installations
+
+- The user wants the compiled `ChildStream.exe` as the default deliverable. Do not
+  generate or offer ZIP/source/checksum bundles unless explicitly requested.
+- Keep the working source folder and known local launcher copies on the same
+  compiled version when delivering an update. The current installed runtime is
+  `C:\Users\Admin\Downloads\ChildStream-portable`; the workspace root and `dist`
+  are build-output locations. Preserve installed Sunshine, credentials, display
+  settings and logs when updating application files.
+- A launcher and its child helper must use the same installation. Do not direct
+  the user to run an isolated build-output executable against another folder's
+  helper or imply that copying an EXE configures a new Windows installation.
+
 Do not infer a framework, package manager, or project commands from the project
 name or from globally installed Codex skills. Inspect the actual project files
 after application scaffolding or source code is added, then update this file.

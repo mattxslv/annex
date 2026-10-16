@@ -80,6 +80,7 @@ sealed class AgentService
     readonly string root, instance = Guid.NewGuid().ToString("N"); readonly int session;
     readonly IHostDiscoverySource source; readonly Func<string, HostProcess[]> processes; readonly Func<ChildHostProfile, HostLaunchReceipt> launch; readonly Func<bool> isChild;
     readonly object gate = new object(); string selected; ChildHostProfile profile; HostController controller;
+    readonly Dictionary<string, ChildApp> apps = new Dictionary<string, ChildApp>();
     public AgentService(string root, int session, IHostDiscoverySource source, Func<string, HostProcess[]> processes, Func<ChildHostProfile, HostLaunchReceipt> launch, Func<bool> isChild) {
         this.root = root; this.session = session; this.source = source; this.processes = processes; this.launch = launch; this.isChild = isChild; selected = HostSelectionStore.Load(Path.Combine(root, "host-selection.txt"));
     }
@@ -88,6 +89,7 @@ sealed class AgentService
     public AgentReply Handle(AgentRequest request) {
         AgentCodec.Encode(request); // Validate at the service boundary even for an in-process caller.
         lock (gate) {
+            if (request.Command == "LIST_APPS" || request.Command == "REGISTER_APP" || request.Command == "LAUNCH_APP") return HandleApps(request);
             var found = HostDiscovery.Find(root, source); var choice = HostSelection.Choose(found.Installations, selected, null);
             string diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512);
             if (request.Command == "SELECT_HOST") {
@@ -118,18 +120,37 @@ sealed class AgentService
                     else reply.Status = controller.RequestStart();
                 }
                 if (request.Command == "SELECT_HOST") HostSelectionStore.Save(Path.Combine(root, "host-selection.txt"), current.Id);
-                if (request.Command == "REGISTER_APP" || request.Command == "LAUNCH_APP") reply.Diagnostic = "The child app launcher is not available in this build.";
             } catch (Exception ex) { reply.Status = new HostSnapshot(HostState.Error, ex.Message, 0); }
             return Bounded(reply);
         }
     }
     AgentHost[] Describe(HostInstallation[] hosts) { return hosts.Select(h => new AgentHost { Id = Key(h), Name = h.DisplayName, Path = HostInstallation.Limit(h.ExecutablePath, 1024), Version = h.Version }).ToArray(); }
+    AgentReply HandleApps(AgentRequest request) {
+        var reply = new AgentReply { Status = new HostSnapshot(HostState.Waiting, "Apps do not require a streaming host.", 0) };
+        try {
+            if (!isChild()) throw new IOException("Reconnect the actual child desktop before opening apps.");
+            apps.Clear();
+            var candidates = ChildAppCatalog.Find(new NativeAppDiscovery()).ToList(); string record = Path.Combine(root, "child-apps.txt"); var registered = ChildAppCatalog.LoadRegistered(record).ToList();
+            foreach (string path in registered) { try { var app = ChildAppCatalog.Register(path); if (!candidates.Any(a => HostController.SamePath(a.ExecutablePath, path))) candidates.Add(app); } catch (IOException) { } catch (ArgumentException) { } }
+            if (request.Command == "REGISTER_APP") { var app = ChildAppCatalog.Register(request.ExecutablePath); if (registered.Count >= 16 && !registered.Contains(app.ExecutablePath, StringComparer.OrdinalIgnoreCase)) throw new IOException("The child app list is full (16). Remove an entry from child-apps.txt before adding another."); registered.Add(app.ExecutablePath); ChildAppCatalog.SaveRegistered(record, registered); if (!candidates.Any(a => HostController.SamePath(a.ExecutablePath, app.ExecutablePath))) candidates.Add(app); }
+            foreach (var app in candidates.Take(16)) apps[HostProfiles.Digest(instance + "|" + app.Id)] = app;
+            reply.Apps = apps.Select(pair => new AgentApp { Id = pair.Key, Name = pair.Value.DisplayName, Path = HostInstallation.Limit(pair.Value.ExecutablePath, 1024) }).ToArray();
+            if (request.Command == "LAUNCH_APP") {
+                ChildApp app; if (!apps.TryGetValue(request.AppId, out app)) throw new IOException("The selected app changed or the helper restarted. Refresh and choose it again.");
+                AppLaunchSpec spec = ChildAppLauncher.Build(app, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+                reply.Diagnostic = ChildAppLauncher.Launch(spec, (uint)session, () => isChild() ? (uint)session : 0, ChildAppLauncher.NativeStart).Message;
+            }
+        } catch (Exception ex) { reply.Diagnostic = HostInstallation.Limit(ex.Message, 512); }
+        return Bounded(reply);
+    }
     static AgentReply Bounded(AgentReply reply) {
         for (;;) {
             try { AgentCodec.Encode(reply); return reply; }
             catch (InvalidDataException) {
-                if (reply.Hosts.Length == 0) throw;
-                reply.Hosts = reply.Hosts.Take(reply.Hosts.Length - 1).ToArray(); reply.Diagnostic = "Some discovered hosts exceed this reply's size limit. Use Browse to select an executable.";
+                if (reply.Hosts.Length > 0) reply.Hosts = reply.Hosts.Take(reply.Hosts.Length - 1).ToArray();
+                else if (reply.Apps.Length > 0) reply.Apps = reply.Apps.Take(reply.Apps.Length - 1).ToArray();
+                else throw;
+                reply.Diagnostic = "Some entries exceed this reply's size limit. Use Browse to choose an executable.";
             }
         }
     }

@@ -4,6 +4,8 @@
 *.marker
 cred.bin
 host-selection.txt
+child-apps.txt
+Hosts/
 monitors.csv
 sunshine-lite.zip
 dist/

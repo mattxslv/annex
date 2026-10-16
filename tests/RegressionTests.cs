@@ -158,6 +158,7 @@ static class RegressionTests
         HostDiscoveryTests.Run(Check);
         HostProfileTests.Run(Check);
         AgentMessageTests.Run(Check);
+        ChildAppTests.Run(Check);
         StreamingHostTests.Run(Check);
         SessionAgentTests.Run(Check);
         LauncherTests.Run(Check);

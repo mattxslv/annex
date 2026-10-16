@@ -29,6 +29,7 @@ src/DesktopSetup.cs
 src/HostDiscovery.cs
 src/HostProfiles.cs
 src/AgentMessages.cs
+src/ChildApps.cs
 src/NativeHostDiscovery.cs
 src/StreamingHost.cs
 src/SessionAgent.cs
@@ -40,6 +41,7 @@ tests/DesktopSetupTests.cs
 tests/HostDiscoveryTests.cs
 tests/HostProfileTests.cs
 tests/AgentMessageTests.cs
+tests/ChildAppTests.cs
 tests/StreamingHostTests.cs
 tests/SessionAgentTests.cs
 tests/LauncherTests.cs

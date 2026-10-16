@@ -72,6 +72,31 @@ static class LauncherTests
             var gate = new SessionRequestGate(); gate.Update(7, true); int token = gate.Generation; gate.Close();
             Assert(!gate.Accepts(token, 7), "closed window accepted response");
         });
+        check("confirmation expires after disconnect even when the child ID is reused", delegate {
+            var gate = new SessionRequestGate(); gate.Update(7, true);
+            var confirmation = new SessionConfirmation(gate, 7);
+            Assert(confirmation.CanProceed(7), "unchanged connected child refused");
+            gate.Update(0, false); gate.Update(7, true);
+            Assert(!confirmation.CanProceed(7), "old confirmation authorized a new connection generation");
+        });
+        check("confirmation rejects replacement children and closing windows", delegate {
+            var gate = new SessionRequestGate(); gate.Update(7, true);
+            var confirmation = new SessionConfirmation(gate, 7);
+            gate.Update(8, true);
+            Assert(!confirmation.CanProceed(8), "confirmation followed replacement child");
+            var next = new SessionConfirmation(gate, 8); gate.Close();
+            Assert(!next.CanProceed(8), "closed window retained approval");
+        });
+        check("confirmed sign-out refuses a replacement at the native boundary", delegate {
+            uint actual = 8, target = 0;
+            var controller = new ChildSessionController(() => actual, id => target = id);
+            bool refused = false;
+            try { controller.EndConfirmedSession(7, 1, 1); }
+            catch (InvalidOperationException) { refused = true; }
+            Assert(refused && target == 0, "a replacement child was signed out");
+            actual = 7; controller.EndConfirmedSession(7, 1, 1);
+            Assert(target == 7, "approved unchanged child was not signed out");
+        });
         check("new child shows checking while routine host polls preserve their snapshot", delegate {
             var previous = new HostSnapshot(HostState.Running, "running", 48989);
             var checking = LauncherPolicy.ForSession(previous, 7, 8);

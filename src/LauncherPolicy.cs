@@ -46,3 +46,17 @@ sealed class SessionRequestGate
     public bool Accepts(int generation, uint session) { return !closed && connected && session == child && generation == Generation; }
     public void Close() { closed = true; Generation++; }
 }
+
+// A modal dialog pumps timer events. Its approval belongs to the connection that
+// opened it, even if Windows later reuses the same numeric child-session ID.
+sealed class SessionConfirmation
+{
+    readonly SessionRequestGate gate;
+    readonly int generation;
+    public uint Child { get; private set; }
+    public SessionConfirmation(SessionRequestGate gate, uint child)
+    {
+        this.gate = gate; generation = gate.Generation; Child = child;
+    }
+    public bool CanProceed(uint currentChild) { return currentChild == Child && gate.Accepts(generation, Child); }
+}

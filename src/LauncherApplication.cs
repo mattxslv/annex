@@ -168,21 +168,32 @@ sealed class LauncherApplication : IDisposable
     }
     void ConfirmStart()
     {
-        uint approvedChild = child;
-        if (promptOpen || inFlight || !StillConnected(approvedChild) || !LauncherPolicy.CanStartHost(host, true)) return;
+        var approval = new SessionConfirmation(requests, child);
+        if (promptOpen || inFlight || !approval.CanProceed(child) || !StillConnected(approval.Child) || !LauncherPolicy.CanStartHost(host, true)) return;
         promptOpen = true;
         DialogResult answer;
         try { answer = MessageBox.Show(window, "Sunshine is off or could not start in the child desktop.\n\nStart Sunshine there now? Windows may ask you to approve elevation inside that desktop.", "Start Sunshine?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2); }
         finally { promptOpen = false; }
-        if (answer == DialogResult.Yes && approvedChild == child && StillConnected(approvedChild)) RequestHost("START");
+        if (answer == DialogResult.Yes) {
+            if (approval.CanProceed(child) && StillConnected(approval.Child)) RequestHost("START");
+            else window.SetNotice("The desktop connection changed. Review its status and choose Start Sunshine again.");
+        }
     }
     void EndSession()
     {
-        if (ending || child == 0) return;
-        if (MessageBox.Show(window, "Sign out the child desktop? All games and applications in it will close.", "End child session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+        var approval = new SessionConfirmation(requests, child);
+        if (ending || promptOpen || !approval.CanProceed(child) || !StillConnected(approval.Child)) return;
+        promptOpen = true;
+        DialogResult answer;
+        try { answer = MessageBox.Show(window, "Sign out the child desktop? All games and applications in it will close.", "End child session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2); }
+        finally { promptOpen = false; }
+        if (answer != DialogResult.Yes) return;
+        if (!approval.CanProceed(child) || !StillConnected(approval.Child)) {
+            window.SetNotice("The desktop connection changed. Review it and choose End session again."); return;
+        }
         bool previousReconnect = wantReconnect; ending = true; wantReconnect = false; requests.Update(0, false); window.SetEnding(true);
         try {
-            new ChildSessionController(Program.GetChildSessionId, Program.LogoffChildSession).EndSession((uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId());
+            new ChildSessionController(Program.GetChildSessionId, Program.LogoffChildSession).EndConfirmedSession(approval.Child, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId());
             requests.Close(); window.SetNotice("Sign-out requested. Closing the viewer without reconnecting.");
             var quit = new Timer { Interval = 3000 }; quit.Tick += delegate { quit.Stop(); quit.Dispose(); window.Close(); }; quit.Start();
         }

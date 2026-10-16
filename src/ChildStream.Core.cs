@@ -45,7 +45,14 @@ sealed class ChildSessionController
 
     public void EndSession(uint currentSession, uint consoleSession)
     {
+        EndConfirmedSession(getChildSession(), currentSession, consoleSession);
+    }
+
+    public void EndConfirmedSession(uint approvedChild, uint currentSession, uint consoleSession)
+    {
         uint child = getChildSession();
+        if (child != approvedChild)
+            throw new InvalidOperationException("The child desktop changed after confirmation. Review it before signing out.");
         // Never let the no-child sentinel mean WTS_CURRENT_SESSION to logoff.
         if (child == uint.MaxValue || child == 0 || child == currentSession || child == consoleSession)
             throw new InvalidOperationException("No child session belonging to this launcher is available to sign out.");

@@ -50,6 +50,13 @@ once per observed host stop. A new child first shows Checking Sunshine; routine
 checks preserve the prior snapshot. Per-session/user mutexes guard duplicate
 launchers/helpers. The helper never starts a host solely because Windows logs on.
 
+The independent whole-branch review found two confirmation lifecycle issues:
+timer/reconnect events can change the child while a modal question remains open.
+Both start and sign-out approvals now capture the child and connection generation,
+and expire after disconnect, replacement or close. Sign-out additionally compares
+the fresh native child lookup with the approved target before calling logoff.
+Regressions cover reused IDs, replacement/closed connections and that native boundary.
+
 The native finish review accepted the scored checking-state correction after fresh
 stopped/running/unavailable/compact/enlarged/checking captures. These are labelled
 synthetic previews, not real session, capture or OS DPI evidence. Native Tab focus,

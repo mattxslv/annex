@@ -1,8 +1,8 @@
 # Simple host selection and child-session app compatibility
 
-Status: proposed; implementation requires review of this design. This extends the
-approved Sunshine-only launcher design. It is not a claim that these features are
-already in the executable.
+Status: approved by the user on 2026-10-17; implementation awaits review of the
+written plan. This extends the approved Sunshine-only launcher design. It is not a
+claim that these features are already in the executable.
 
 ## Outcome
 

@@ -10,11 +10,13 @@ jobs:
     strategy:
       matrix:
         shell: [powershell, pwsh]
+    env:
+      CHILDSTREAM_TEST_SHELL: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
       - name: Build launcher
-        shell: ${{ matrix.shell }}
-        run: .\scripts\build.ps1
+        shell: pwsh
+        run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1'
       - name: Run non-destructive regression checks
-        shell: ${{ matrix.shell }}
-        run: .\scripts\test.ps1
+        shell: pwsh
+        run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1'

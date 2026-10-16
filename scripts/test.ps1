@@ -21,8 +21,10 @@ try {
     $csharpExitCode = $LASTEXITCODE
     # Isolate native-boundary test doubles from a caller's interactive session.
     $testShell = (Get-Process -Id $PID).Path
-    & $testShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\scripts.tests.ps1')
-    if ($LASTEXITCODE -ne 0) { throw 'PowerShell regression tests failed.' }
+    foreach ($scriptTest in @('scripts.tests.ps1', 'package.tests.ps1')) {
+        & $testShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root ('tests\' + $scriptTest))
+        if ($LASTEXITCODE -ne 0) { throw "PowerShell regression tests failed: $scriptTest" }
+    }
     if ($csharpExitCode -ne 0) { throw 'C# regression tests failed.' }
 }
 finally {

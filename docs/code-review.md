@@ -6,8 +6,9 @@ from [mattxslv/childstream](https://github.com/mattxslv/childstream).
 The review covered all launcher code, both original PowerShell scripts, the README,
 ignore rules, and relevant history. The goal is dependable second-desktop game
 streaming while the physical desktop remains usable. This change keeps the current
-.NET Framework/WinForms and portable Sunshine architecture. It adds no package
-dependencies or major product features.
+.NET Framework/WinForms and portable Sunshine architecture, without package
+dependencies. The user subsequently approved the native launcher and protected
+child-session helper in [the design](superpowers/specs/2026-10-16-streaming-launcher-design.md).
 
 ## Findings addressed
 
@@ -33,29 +34,51 @@ The existing DPAPI user scope, loopback server destination, MIT license, port
 separation, and destructive sign-out confirmation are retained. The repository
 already had an appropriate `.gitignore` for credentials and runtime output.
 
+## Approved launcher follow-up implemented
+
+The inherited non-console automatic-Sunshine hook was replaced with an idle helper.
+The parent queries its actual Windows child ID; every local request verifies the
+same-user pipe ACL, peer executable path, peer session and current child association.
+Only bounded STATUS/START messages are accepted. Process detection matches the
+portable executable path and child ID; uncertain access suppresses starting.
+Serialized host startup runs on an STA thread in the child, so UAC stays there.
+
+The native launcher adds setup/session/host states, confirmation before host start,
+pairing address, loopback settings, tray handling and safe sign-out. It discards
+stale asynchronous responses after session changes, disconnect or close, and prompts
+once per observed host stop. A new child first shows Checking Sunshine; routine
+checks preserve the prior snapshot. Per-session/user mutexes guard duplicate
+launchers/helpers. The helper never starts a host solely because Windows logs on.
+
+The native finish review accepted the scored checking-state correction after fresh
+stopped/running/unavailable/compact/enlarged/checking captures. These are labelled
+synthetic previews, not real session, capture or OS DPI evidence. Native Tab focus,
+Return on Reconnect and Space on simulated Start Sunshine were exercised safely.
+Optional UI polish remains: Copy address is enabled without a known address and
+does nothing in that case.
+
+Release packaging uses an explicit source-file allowlist. ZIP-content tests seed
+harmless credential/log/host/Git/scratch stand-ins and verify they never enter the
+archives. Checksums cover the executable and both ZIPs. Sunshine and drivers are
+not redistributed. Client/host roles are documented in the README; Apollo and
+VibePollo are alternative hosts, not clients of Sunshine.
+
 ## Remaining findings and proposed major follow-ups
 
 These are suggestions requiring a separate scope decision, not implemented features.
 
-1. **Restrict automatic Sunshine startup to the launcher's child session.**
-   The current hook treats any non-console session as a child. Ordinary RDP logons
-   and another user's logon can trigger it, and its process-name check does not
-   distinguish Sunshine installations. Replace the all-users heuristic with an
-   authenticated association between the launcher and its child session, including
-   reconnect and viewer-exit behavior. This should be prioritized before multi-user
-   use. `WTSGetChildSessionId` documents a query for the *current session's child*;
-   simply calling it inside a child is not a documented way to identify its parent.
-2. **Setup recovery and uninstall.** Record original registry values and owned
+1. **Setup recovery and uninstall.** Record original registry values and owned
    firewall/startup artifacts; add repair and uninstall that restore only owned
    changes. Existing firewall rules also retain an old executable path if the
    checkout is moved. Avoid blindly restoring defaults that could break existing RDP.
-3. **Preflight and diagnostics.** A small status screen could explain Windows edition,
+2. **Deeper preflight and diagnostics.** The status screen checks session/helper and
+   host process state. Additional checks could explain Windows edition,
    session support, encoder availability, port conflicts, input drivers, UAC failures,
    and Sunshine startup health before attempting a stream. Combine this with pinned,
    integrity-checked Sunshine downloads for reproducible installs.
-4. **Authentication and instance ownership.** The launcher still uses the existing
+3. **Authentication and storage.** The launcher still uses the existing
    `MACHINE\username` password flow and stores runtime state beside the executable.
-   Domain/Entra identities, passwordless parent sessions, single-instance ownership,
+   Domain/Entra identities, passwordless parent sessions,
    and per-user application-data storage need explicit design and compatibility
    checks. Microsoft documents automatic authentication for normal child sessions,
    so mandatory password collection may be removable after validation.
@@ -66,16 +89,22 @@ are not assumed necessary for the current proof of concept.
 ## Verification and its limits
 
 The baseline compiled with the installed .NET Framework compiler. The changed
-launcher builds with warnings treated as errors. `scripts/test.ps1` runs 28 C# and
-5 PowerShell regression cases, plus PowerShell parsing. The suite was run in both
-Windows PowerShell 5.1 and PowerShell 7. Git diff whitespace checks were also run.
-The CI workflow is provided; its hosted result is not established by a local run.
+launcher builds with warnings treated as errors. `scripts/test.ps1` parses
+PowerShell and runs C# policy/native-boundary checks, PowerShell script regression
+checks, and packaging ZIP/checksum checks. Run the command for current case totals.
+Both Windows PowerShell 5.1 and PowerShell 7 are covered by local verification and
+the Windows CI matrix. Hosted CI results must be checked on the final commit;
+a local run alone does not establish them.
 
 Tests exercise real display parsing, file deletion and config/build filesystem
 behavior. Session API/process boundaries are substituted so tests cannot log off
 a session, enable child sessions, elevate Sunshine, or change firewall/registry
 settings. Baseline expectations were run failing before the main fixes; additional
-password-reset checks cover an actual read-only file.
+password-reset checks cover an actual read-only file. Transport checks also exercise
+real local named pipes, peer PIDs/session/path inspection, ACLs and timeouts in a
+normal user process. Development app-container isolation prevents those peers
+communicating, so that suite runs outside the development sandbox; it needs no
+administrator rights or host-setting changes.
 
 The automated suite does not establish real RDP COM event behavior, gamepad input,
 UAC interaction, capture performance, authentication, or end-to-end streaming.
@@ -86,19 +115,33 @@ Setup was not run against the development PC's system settings.
 1. Record existing RDP/registry/firewall values, then run elevated setup from a
    folder writable by the intended user. Repeat setup after customizing Sunshine's
    encoder/ports; verify those settings survive.
-2. Launch the viewer, authenticate, and accept Sunshine elevation. Verify a child
+2. Launch the viewer, select Start desktop, authenticate, choose to start Sunshine,
+   and accept its elevation inside the child desktop. Verify a child
    desktop and a Sunshine process in that desktop; confirm the physical desktop
    remains usable. Pair a Moonlight client and test video, audio, keyboard, mouse,
    and a controller with its required driver installed.
 3. Minimize/restore the viewer and verify capture continues. Disconnect and use
-   Reconnect now; verify the game survives. Change the display file and reconnect.
-4. Reject/cancel elevation and verify the startup log reports failure. Verify a
+   Reconnect; verify the game survives. Change the display file and reconnect.
+   Test actual 100%, 150% and 200% display scaling, high contrast, keyboard navigation
+   and screen-reader announcements. Synthetic enlarged-layout captures do not replace these.
+4. Decline the initial start question and verify it does not recur on every timer.
+   Start explicitly, reject/cancel elevation and verify the launcher/log report
+   failure with an explicit retry. Stop a running host and check the new stop prompt.
+   Verify the settings URL and client address reflect a non-default configured port.
+   Verify a
    malformed display file still permits a connection with the default resolution.
 5. Test password forgetting, then **End session** with a disposable game/application.
    Verify only the actual child signs out, the viewer exits, and it does not recreate
    the session. Keep unrelated console/RDP sessions open to check they survive.
-6. Treat ordinary RDP logon startup as a known limitation until the association
-   follow-up is implemented. Do not assume the hook isolates users.
+6. Keep an unrelated console host and an ordinary RDP session open. Confirm their
+   hosts do not satisfy the child's running check and a new RDP logon launches only
+   an idle helper. Upgrade an existing child without a helper and verify recovery
+   guidance. Test helper crashes, permission-denied process inspection and child
+   changes during a delayed response. Verify only the current child can receive START.
+7. Test Moonlight PC, Android and iOS/tvOS, Artemis, and Moonlight TV on actual
+   target devices with supported codecs. Record versions, pairing, video/audio,
+   keyboard/mouse/controller and reconnect results. Host forks need a separate
+   replacement integration; they are not client acceptance cases.
 
 ## References
 

@@ -20,3 +20,18 @@ jobs:
       - name: Run non-destructive regression checks
         shell: pwsh
         run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1'
+      - name: Package executable and source
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: .\scripts\package.ps1
+      - uses: actions/upload-artifact@v7
+        if: matrix.shell == 'pwsh'
+        with:
+          name: ChildStream-windows-x64
+          path: |
+            dist/ChildStream.exe
+            dist/ChildStream-portable.zip
+            dist/ChildStream-source.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

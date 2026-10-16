@@ -23,9 +23,9 @@ after application scaffolding or source code is added, then update this file.
 | Development server | Inapplicable: native desktop app. Build, then launch `ChildStream.exe` for a separately authorized interactive smoke test. |
 | Lint | No dedicated linter; `.\scripts\test.ps1` parses PowerShell, and builds treat compiler warnings as errors. `git diff --check` checks whitespace. |
 | Type-check | C# compiler performs type checking during `.\scripts\build.ps1` and `.\scripts\test.ps1`. |
-| Tests | `.\scripts\test.ps1` from repository root; 28 C# + 5 PowerShell cases. No admin rights or host-setting changes. Compatible with Windows PowerShell 5.1 and PowerShell 7. |
-| Production build | `.\scripts\build.ps1` from repository root; emits ignored `ChildStream.exe` using `Framework64\v4.0.30319\csc.exe`. No elevation needed. |
-| CI | `.github/workflows/checks.yml` builds and tests on Windows under both PowerShell versions. |
+| Tests | `.\scripts\test.ps1` from repository root; 82 C# + 6 PowerShell + 3 packaging cases. No admin rights or host-setting changes. Compatible with Windows PowerShell 5.1 and PowerShell 7. |
+| Production build | `.\scripts\build.ps1` from repository root; emits ignored `ChildStream.exe`; `.\scripts\package.ps1` rebuilds and creates executable/portable/source ZIPs and SHA-256 checksums in ignored `dist`, using `Framework64\v4.0.30319\csc.exe`. No elevation needed. |
+| CI | `.github/workflows/checks.yml` builds and tests on Windows under both PowerShell versions, packages once and retains artifacts for 30 days. |
 
 When project files become available:
 

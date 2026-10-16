@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T05:08:55.010Z",
+  "title": "Design System: ChildStream",
+  "extensions": {
+    "colorMeta": {
+      "action-blue": {
+        "role": "primary",
+        "displayName": "Action blue"
+      },
+      "action-text": {
+        "role": "neutral",
+        "displayName": "Action text"
+      },
+      "workspace-slate": {
+        "role": "neutral",
+        "displayName": "Workspace slate"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink"
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted ink"
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "Divider"
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Control border"
+      },
+      "disabled-surface": {
+        "role": "neutral",
+        "displayName": "Disabled surface"
+      },
+      "running": {
+        "displayName": "Running status"
+      },
+      "attention": {
+        "displayName": "Attention status"
+      }
+    },
+    "typographyMeta": {
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "ChildStream wordmark label."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Second desktop and Streaming host group labels."
+      },
+      "status": {
+        "displayName": "Status",
+        "purpose": "Session and host-state headings."
+      },
+      "body": {
+        "displayName": "Body and controls",
+        "purpose": "Explanatory labels and inherited form/control text."
+      },
+      "workspace-title": {
+        "displayName": "Workspace title",
+        "purpose": "Desktop preview toolbar heading."
+      },
+      "guidance-title": {
+        "displayName": "Guidance title",
+        "purpose": "First-run, setup and explicitly synthetic preview guidance."
+      },
+      "guidance-body": {
+        "displayName": "Guidance body",
+        "purpose": "Supporting copy in the central workspace."
+      },
+      "field-label": {
+        "displayName": "Field label",
+        "purpose": "Client address label."
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Documentation preview of an enabled native primary action. Source: LauncherWindow.Button/StyleButton. Browser outline and hover affordances illustrate interaction only; Windows renders the product's actual focus, hover and press states.",
+      "html": "<button class=\"ds-primary\" type=\"button\" aria-label=\"Start Sunshine\">Start Sunshine</button>",
+      "css": ".ds-primary { font: 400 9.5pt 'Segoe UI'; color: #FFFFFF; background: #215CDD; border: 1px solid #215CDD; border-radius: 0; padding: 3px 10px; min-height: 38px; } .ds-primary:hover { cursor: default; } .ds-primary:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-primary { color: ButtonText; background: ButtonFace; border-color: ButtonText; } }"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Documentation preview of the native secondary action. Canvas stands in for SystemColors.Window; native chrome, metrics and interaction rendering remain owned by Windows.",
+      "html": "<button class=\"ds-secondary\" type=\"button\" aria-label=\"Reconnect\">Reconnect</button>",
+      "css": ".ds-secondary { font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid #C3CFDD; border-radius: 0; padding: 3px 10px; min-height: 30px; } .ds-secondary:hover { cursor: default; } .ds-secondary:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-secondary { color: ButtonText; background: ButtonFace; border-color: ButtonText; } }"
+    },
+    {
+      "name": "Disabled primary button",
+      "kind": "button",
+      "refersTo": "button-disabled",
+      "description": "Documentation preview of the disabled native primary control. Disabled fill, text and border are shared with secondary controls; this original primary retains its 38-unit minimum height. The unavailable-host preview uses this state.",
+      "html": "<button class=\"ds-disabled\" type=\"button\" disabled>Start Sunshine</button>",
+      "css": ".ds-disabled { font: 400 9.5pt 'Segoe UI'; color: #526579; background: #E9EEF4; border: 1px solid #D9E2EC; border-radius: 0; padding: 3px 10px; min-height: 38px; } @media (forced-colors: active) { .ds-disabled { color: GrayText; background: ButtonFace; border-color: GrayText; } }"
+    },
+    {
+      "name": "Client address field",
+      "kind": "input",
+      "refersTo": "address-field",
+      "description": "Documentation preview of the read-only native TextBox with FixedSingle border. Canvas and CanvasText are browser illustration equivalents for system window colors, not additional product palette tokens. The literal address is synthetic.",
+      "html": "<input class=\"ds-address\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"gaming-pc:48989\">",
+      "css": ".ds-address { box-sizing: border-box; font: 400 9.5pt 'Segoe UI'; width: 210px; color: #182838; background: Canvas; border: 1px solid ButtonText; border-radius: 0; margin: 5px 8px 0; } .ds-address:hover { cursor: text; } .ds-address:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-address { color: CanvasText; border-color: CanvasText; } }"
+    },
+    {
+      "name": "Checking host status",
+      "kind": "custom",
+      "refersTo": "host-status",
+      "description": "Documentation preview of the corrected initial checking presentation, grounded in LauncherWindow.SetHost and LauncherPolicy.ForSession. Start/settings actions are absent and the previous child address is not retained.",
+      "html": "<section class=\"ds-checking\" aria-label=\"Streaming host\"><h3>Checking Sunshine</h3><p>Checking Sunshine in the attached child desktop...</p></section>",
+      "css": ".ds-checking { max-width: 252px; color: #182838; background: Canvas; } .ds-checking h3 { font: 700 14pt 'Segoe UI'; margin: 0 0 6px; } .ds-checking p { font: 400 9.5pt 'Segoe UI'; color: #526579; margin: 0 0 12px; } @media (forced-colors: active) { .ds-checking, .ds-checking p { color: CanvasText; } }"
+    },
+    {
+      "name": "Running host status",
+      "kind": "custom",
+      "refersTo": "host-status-running",
+      "description": "Documentation preview of the text-labelled running state. The supplementary green heading is replaced with Windows system text in high contrast; the native product exposes the settings action only after its state checks.",
+      "html": "<section class=\"ds-running\" aria-label=\"Streaming host\"><h3>Sunshine running</h3><p>Sunshine is running in the child desktop. Pair your compatible client with this host.</p></section>",
+      "css": ".ds-running { max-width: 252px; background: Canvas; } .ds-running h3 { font: 700 14pt 'Segoe UI'; color: #146847; margin: 0 0 6px; } .ds-running p { font: 400 9.5pt 'Segoe UI'; color: #526579; margin: 0 0 12px; } @media (forced-colors: active) { .ds-running h3, .ds-running p { color: CanvasText; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The native desktop companion",
+    "overview": "ChildStream uses a quiet, readable Windows surface around the desktop it controls. The native window, familiar controls and restrained palette support a working desktop rather than competing with it. Session identity and explicit text status carry the hierarchy; color reinforces that information.\n\nThis documents the implemented WinForms extension in `src/LauncherWindow.cs` and `src/LauncherApplication.cs`, under the approved direction in `docs/launcher-surface.md` and `PRODUCT.md`. It is a native design system; the HTML/CSS snippets in `.impeccable/design.json` are documentation previews for the design panel and are not product components or an implementation framework.",
+    "keyCharacteristics": [
+      "Native Windows chrome, controls, focus rendering and confirmation dialogs.",
+      "Pale slate surround, system window surfaces, dark text and blue primary actions.",
+      "A dominant desktop workspace with a compact companion control rail.",
+      "Text-labelled states, actionable recovery and explicit synthetic-preview labels."
+    ],
+    "rules": [
+      {
+        "name": "The Session Truth Rule",
+        "body": "Always name the state in text. A green heading alone cannot communicate which session or host is running.",
+        "section": "colors"
+      },
+      {
+        "name": "The Native Rendering Rule",
+        "body": "Keep native text metrics, mnemonics and visible focus behavior. Do not translate a web typography convention into a new native font or decorative heading style.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Workspace Rule",
+        "body": "Keep application containers flat and let the desktop remain the working surface.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep the native desktop workspace visually dominant.",
+      "**Do** identify the child session and host state in readable text.",
+      "**Do** use Segoe UI and preserve Windows focus, mnemonics and system-color overrides.",
+      "**Do** show Checking Sunshine distinctly while the first child-session status is pending.",
+      "**Do** label synthetic previews and retain their evidence limits."
+    ],
+    "donts": [
+      "**Don't** introduce decorative cards, neon game-dashboard styling or a second font into this approved surface.",
+      "**Don't** use color as the sole signal for running, errors or unavailable state.",
+      "**Don't** replace native high-contrast colors with the normal-mode palette.",
+      "**Don't** invent custom radius, shadow, hover, motion or breakpoint tokens absent from the implementation.",
+      "**Don't** describe explicit layout scaling or synthetic captures as live streaming or OS DPI validation."
+    ]
+  }
+}

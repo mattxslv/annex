@@ -60,18 +60,13 @@ try {
         Assert-True $caught 'compiler failure did not stop the build'
         Assert-True ([IO.File]::ReadAllText($output) -eq 'previous working launcher') 'failed build replaced previous launcher'
     }
-    Test-Case 'autostart records failed elevation instead of reporting success' {
+    Test-Case 'autostart records helper launch failure instead of success' {
         $copy = Join-Path $fixture 'autostart project'
         New-Item -ItemType Directory -Path (Join-Path $copy 'scripts'), (Join-Path $copy 'Sunshine\Sunshine') | Out-Null
         Copy-Item -LiteralPath (Join-Path $root 'scripts\childsession-autostart.ps1') -Destination (Join-Path $copy 'scripts\childsession-autostart.ps1')
         Set-Content -LiteralPath (Join-Path $copy 'Sunshine\Sunshine\sunshine.exe') -Value 'never executed'
+        Set-Content -LiteralPath (Join-Path $copy 'ChildStream.exe') -Value 'never executed'
         # Only the native/process boundaries are replaced. The original startup script runs.
-        Add-Type 'namespace ChildPOC { public static class Native { public static uint WTSGetActiveConsoleSessionId() { return 1; } } }'
-        function Add-Type { param($Namespace, $Name, $MemberDefinition) }
-        function Get-Process {
-            [CmdletBinding()]param($Name, $Id)
-            if ($PSBoundParameters.ContainsKey('Id')) { [pscustomobject]@{ SessionId = 2 } }
-        }
         function Start-Process {
             [CmdletBinding()]param($FilePath, $WorkingDirectory, $WindowStyle, $Verb)
             throw 'Elevation was canceled'
@@ -84,6 +79,22 @@ try {
         Assert-True (Test-Path -LiteralPath $log) 'startup failure was not logged'
         $text = [IO.File]::ReadAllText($log)
         Assert-True ($text -match 'failed' -and $text -notmatch 'started sunshine') 'log incorrectly reported success'
+    }
+    Test-Case 'startup launches only the idle session helper without elevation' {
+        $copy = Join-Path $fixture 'helper startup'
+        New-Item -ItemType Directory -Path (Join-Path $copy 'scripts'), (Join-Path $copy 'Sunshine\Sunshine') | Out-Null
+        Copy-Item -LiteralPath (Join-Path $root 'scripts\childsession-autostart.ps1') -Destination (Join-Path $copy 'scripts\childsession-autostart.ps1')
+        Set-Content -LiteralPath (Join-Path $copy 'ChildStream.exe') -Value 'never executed'
+        Set-Content -LiteralPath (Join-Path $copy 'Sunshine\Sunshine\sunshine.exe') -Value 'never executed'
+        $helperLaunches = New-Object 'Collections.Generic.List[object]'
+        function Start-Process {
+            [CmdletBinding()]param($FilePath, $ArgumentList, $WorkingDirectory, $WindowStyle, $Verb)
+            $helperLaunches.Add([pscustomobject]@{ Path = $FilePath; Args = $ArgumentList; Verb = $Verb; Window = $WindowStyle })
+        }
+        & (Join-Path $copy 'scripts\childsession-autostart.ps1')
+        Assert-True ($helperLaunches.Count -eq 1 -and $helperLaunches[0].Path -eq (Join-Path $copy 'ChildStream.exe')) 'startup launched a host instead of the helper'
+        Assert-True ($helperLaunches[0].Args -eq '-agent') 'wrong helper arguments'
+        Assert-True (-not $helperLaunches[0].Verb -and $helperLaunches[0].Window -eq 'Hidden') 'helper requested elevation or a visible window'
     }
 }
 finally {

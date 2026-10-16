@@ -65,7 +65,7 @@ if (-not (Get-NetFirewallRule -DisplayName 'ChildStream Sunshine' -ErrorAction S
     New-NetFirewallRule -DisplayName 'ChildStream Sunshine' -Direction Inbound -Program $sunshineExe -Action Allow -Profile Any | Out-Null
 }
 
-# Startup hook (all users); legacy non-console guard limitations are in README.
+# Startup hook starts an idle helper; it never automatically starts a host.
 $hook = Join-Path $startup 'childstream-sunshine.cmd'
 $powerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $startupScript = "& '" + (Join-Path $root 'scripts\childsession-autostart.ps1').Replace("'", "''") + "'"

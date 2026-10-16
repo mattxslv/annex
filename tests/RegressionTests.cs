@@ -154,6 +154,7 @@ static class RegressionTests
                 "partly applied override was not restored");
         });
         StreamingHostTests.Run(Check);
+        SessionAgentTests.Run(Check);
         Console.WriteLine("C#: " + (checks - failures) + "/" + checks + " passed");
         return failures == 0 ? 0 : 1;
     }

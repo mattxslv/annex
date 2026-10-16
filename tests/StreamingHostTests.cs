@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 static class StreamingHostTests
 {
@@ -119,7 +120,7 @@ static class StreamingHostTests
                 host.RequestStart();
                 Assert(entered.WaitOne(3000), "launch worker did not start");
                 try {
-                    for (int i = 0; i < 10; i++) Assert(host.RequestStart().State == HostState.Starting, "delayed launch not in progress");
+                    Parallel.For(0, 10, delegate(int i) { Assert(host.RequestStart().State == HostState.Starting, "delayed launch not in progress"); });
                     Assert(f.Starts == 1, "duplicate start during pending elevation");
                 }
                 finally { release.Set(); }

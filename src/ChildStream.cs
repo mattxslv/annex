@@ -97,6 +97,7 @@ static class Program
     [STAThread]
     static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "-agent") return SessionAgent.Run(baseDir);
         if (args.Length > 0 && args[0] == "-enable")
         {
             bool ok = WTSEnableChildSessions(true);

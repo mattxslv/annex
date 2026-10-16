@@ -95,21 +95,24 @@ static class Program
     }
 
     internal static bool ChildSessionsEnabled(out bool enabled) { return WTSIsChildSessionsEnabled(out enabled); }
+    internal static bool EnableChildSessions()
+    {
+        bool ok = WTSEnableChildSessions(true); int error = Marshal.GetLastWin32Error(); bool enabled;
+        bool queried = WTSIsChildSessionsEnabled(out enabled);
+        Log("enable: result=" + ok + ", error=" + error + ", enabled=" + enabled);
+        return ok && queried && enabled;
+    }
 
     [STAThread]
     static int Main(string[] args)
     {
         string command = args.Length == 0 ? "" : args[0].ToLowerInvariant();
+        if (command == "-setup") return DesktopSetup.Run(baseDir, args.Length > 1 ? args[1] : null);
         if (command == "-agent") return SessionAgent.Run(baseDir);
         if (command == "-resetpass") return ClearPassword() ? 0 : 1;
         if (command == "-enable")
         {
-            bool ok = WTSEnableChildSessions(true);
-            int error = Marshal.GetLastWin32Error();
-            bool enabled;
-            bool queried = WTSIsChildSessionsEnabled(out enabled);
-            Log("enable: result=" + ok + ", error=" + error + ", enabled=" + enabled);
-            return ok && queried && enabled ? 0 : 1;
+            return EnableChildSessions() ? 0 : 1;
         }
         if (command == "-check") { bool enabled; return WTSIsChildSessionsEnabled(out enabled) && enabled ? 0 : 1; }
         Application.EnableVisualStyles();

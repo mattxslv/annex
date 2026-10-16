@@ -96,6 +96,27 @@ try {
         Assert-True ($helperLaunches[0].Args -eq '-agent') 'wrong helper arguments'
         Assert-True (-not $helperLaunches[0].Verb -and $helperLaunches[0].Window -eq 'Hidden') 'helper requested elevation or a visible window'
     }
+    Test-Case 'setup wrapper uses EXE-contained setup without downloading a host' {
+        $copy = Join-Path $fixture 'host optional setup'
+        New-Item -ItemType Directory -Path (Join-Path $copy 'scripts') | Out-Null
+        Copy-Item -LiteralPath (Join-Path $root 'scripts\setup.ps1') -Destination (Join-Path $copy 'scripts\setup.ps1')
+        Copy-Item -LiteralPath $common -Destination (Join-Path $copy 'scripts\setup-common.ps1')
+        Set-Content -LiteralPath (Join-Path $copy 'ChildStream.exe') -Value 'never executed'
+        Set-Content -LiteralPath (Join-Path $copy 'scripts\build.ps1') -Value 'Write-Output "fixture build"'
+        $setupCalls = New-Object 'Collections.Generic.List[object]'
+        function Invoke-RestMethod { throw 'setup must not download a host' }
+        function Invoke-WebRequest { throw 'setup must not download a host' }
+        function Start-Process {
+            [CmdletBinding()]param($FilePath, $ArgumentList, $WorkingDirectory, [switch]$Wait, [switch]$PassThru, $WindowStyle)
+            $setupCalls.Add([pscustomobject]@{ Path = $FilePath; Args = $ArgumentList; Waited = [bool]$Wait; Returned = [bool]$PassThru })
+            return [pscustomobject]@{ ExitCode = 5 }
+        }
+        $caught = $false
+        try { & (Join-Path $copy 'scripts\setup.ps1') *> (Join-Path $fixture 'setup-wrapper.txt') }
+        catch { $caught = $_.Exception.Message -match 'exit code 5' }
+        Assert-True ($setupCalls.Count -eq 1 -and $setupCalls[0].Args -eq '-setup') 'wrapper did not dispatch EXE setup'
+        Assert-True ($setupCalls[0].Waited -and $setupCalls[0].Returned -and $caught) 'setup failure was not awaited and reported'
+    }
 }
 finally {
     # The path was created above under the OS temp directory with a random name.

@@ -39,6 +39,12 @@ static class InstallationIdentity
         return full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
     public static string Load() { return Load(RecordPath); }
+    public static bool SameRoot(string left, string right) {
+        try { return string.Equals(Normalize(left), Normalize(right), StringComparison.OrdinalIgnoreCase); }
+        catch (ArgumentException) { return false; }
+        catch (IOException) { return false; }
+        catch (NotSupportedException) { return false; }
+    }
     public static string Load(string path)
     {
         try {

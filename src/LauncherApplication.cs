@@ -197,7 +197,7 @@ sealed class LauncherApplication : IDisposable
             var found = await Task.Run(() => HostDiscovery.Find(root, new NativeHostDiscovery()));
             if (ending || window.IsDisposed || child != 0 || State() != 0) return;
             window.SetDiscovery(new AgentReply { Status = LauncherPolicy.DiscoverySnapshot(found, false), Diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512) });
-            string registered = InstallationIdentity.Load(); if (registered != null && !HostController.SamePath(registered, root)) window.SetNotice("The helper is registered for " + registered + ". Open that folder's EXE, or use Setup / repair to register this folder.");
+            string registered = InstallationIdentity.Load(); if (registered != null && !InstallationIdentity.SameRoot(registered, root)) window.SetNotice("The helper is registered for " + registered + ". Open that folder's EXE, or use Setup / repair to register this folder.");
         } catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Host discovery did not finish: " + ex.Message); }
     }
     async void SetupRepair() {

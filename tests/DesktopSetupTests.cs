@@ -63,6 +63,11 @@ static class DesktopSetupTests
                 File.WriteAllText(record, "not an absolute installation path");
                 Assert(InstallationIdentity.Load(record) == null, "corrupt registration accepted");
             });
+            check("installation comparison ignores a final separator and path casing", delegate {
+                Assert(InstallationIdentity.SameRoot(install, install.ToUpperInvariant() + Path.DirectorySeparatorChar), "correct installed folder produced a wrong-folder warning");
+                Assert(!InstallationIdentity.SameRoot(install, Path.Combine(root, "other")), "different installation accepted");
+                Assert(!InstallationIdentity.SameRoot(install, "relative"), "invalid registration accepted");
+            });
             check("helper migration preserves unrelated startup commands", delegate {
                 string hook = Path.Combine(root, "unrelated.cmd"); File.WriteAllText(hook, "@echo unrelated");
                 LegacyHelperHook.RemoveIfOwned(hook, install);

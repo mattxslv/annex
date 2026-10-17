@@ -28,6 +28,7 @@ static class PeerIdentity
 {
     public static bool IsTarget(uint target, uint current, uint console) { return target > 0 && target <= int.MaxValue && target != current && target != console; }
     public static bool MatchesChild(uint target, uint reported, bool querySucceeded, uint current, uint console) { return querySucceeded && target == reported && IsTarget(target, current, console); }
+    public static bool IsHelperSession(int current, int boundSession, uint console) { return current > 0 && current == boundSession && (uint)current != console; }
     public static bool IsServer(string path, int session, string expectedPath, uint expectedSession)
     {
         return expectedSession > 0 && expectedSession <= int.MaxValue && session == (int)expectedSession && HostController.SamePath(path, expectedPath);
@@ -230,9 +231,12 @@ static class SessionAgent
             string name = PipeIdentity.Name(baseDirectory, user.Value, (uint)session); bool created;
             using (var singleton = new Mutex(false, "Local\\" + name + ".Agent", out created)) {
                 if (!created) return 0;
-                var service = new AgentService(baseDirectory, session, new NativeHostDiscovery(), HostNative.Processes, HostNative.StartHost, () => {
-                    uint actual; return WtsChildIsCurrent(session, out actual);
-                });
+                // WTSGetChildSessionId is scoped to the calling session. The parent
+                // AgentClient checks its actual child before EACH request, then both
+                // peers verify native path/session identity. A child has no child of
+                // its own: here validate the helper's bound, non-console session.
+                var service = new AgentService(baseDirectory, session, new NativeHostDiscovery(), HostNative.Processes, HostNative.StartHost,
+                    () => PeerIdentity.IsHelperSession(HostNative.CurrentSession(), session, HostNative.WTSGetActiveConsoleSessionId()));
                 var security = CreatePipeSecurity(user);
                 for (;;)
                 using (var pipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096, security)) {
@@ -254,5 +258,4 @@ static class SessionAgent
         }
         catch (Exception ex) { Log(baseDirectory, "helper failed: " + ex.Message); return 1; }
     }
-    static bool WtsChildIsCurrent(int session, out uint actual) { return HostNative.WTSGetChildSessionId(out actual) && actual == (uint)session && actual != HostNative.WTSGetActiveConsoleSessionId(); }
 }

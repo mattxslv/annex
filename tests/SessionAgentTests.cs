@@ -19,6 +19,12 @@ static class SessionAgentTests
     }
     public static void Run(Action<string, Action> check)
     {
+        check("helper validates its bound session while child lookup belongs to the parent", delegate {
+            Assert(PeerIdentity.MatchesChild(7, 7, true, 1, 1), "parent's actual child was rejected");
+            Assert(PeerIdentity.IsHelperSession(7, 7, 1), "child helper incorrectly needs its own child session");
+            Assert(!PeerIdentity.IsHelperSession(1, 1, 1), "console helper can launch child apps");
+            Assert(!PeerIdentity.IsHelperSession(7, 8, 1) && !PeerIdentity.IsHelperSession(0, 0, 1), "unbound/service helper accepted");
+        });
         check("agent permits only exact status and start commands", delegate {
             PipeProtocol.ValidateCommand("STATUS"); PipeProtocol.ValidateCommand("START");
             foreach (string command in new[] { "", "start", "START evil.exe", "STATUS\nSTART", "STOP", null })

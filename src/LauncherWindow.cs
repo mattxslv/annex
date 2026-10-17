@@ -233,6 +233,7 @@ static class LauncherPreview
         foreach (HostState state in new[] { HostState.Stopped, HostState.Running, HostState.Unavailable, HostState.Checking, HostState.Missing })
         using (var form = Create(state)) {
             if (state == HostState.Missing) form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Missing, "Install Sunshine, Apollo or VibePollo to stream. You can keep using the child desktop.", 0) });
+            if (state == HostState.Running) form.SetNotice(LauncherPolicy.SettingsFeedback(true));
             form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
             form.Show(); Application.DoEvents();
             using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, state.ToString().ToLowerInvariant() + ".png"), ImageFormat.Png); }
@@ -245,6 +246,7 @@ static class LauncherPreview
             if (state == HostState.Stopped) {
                 string selected = new string('a', 64);
                 form.SetDiscovery(new AgentReply { SelectionId = selected, Hosts = new[] { new AgentHost { Id = selected, Name = "Apollo", Path = @"C:\Program Files\Apollo\sunshine.exe", Version = "0.4" }, new AgentHost { Id = new string('b', 64), Name = "Sunshine", Path = @"E:\Streaming host with a long folder name\Sunshine\sunshine.exe", Version = "2026.914" } }, Status = new HostSnapshot(HostState.Stopped, "The child host is off. Start it when you want to stream this desktop.", 48989) });
+                form.SetNotice(LauncherPolicy.SettingsFeedback(false));
                 form.ClientSize = new Size(900, 640); Application.DoEvents();
                 using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, "compact.png"), ImageFormat.Png); }
                 form.Scale(new SizeF(1.5f, 1.5f)); Application.DoEvents();

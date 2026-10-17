@@ -5,7 +5,8 @@
 The workspace was initially empty. On 2026-10-16 the source was fetched from
 `https://github.com/mattxslv/childstream` at `d41693e`, then reviewed and improved
 on the local `review/reliability` branch. It is a Windows x64 WinForms launcher
-using the installed .NET Framework 4.x compiler, with PowerShell setup scripts.
+using the installed .NET Framework 4.x compiler, with EXE-contained setup and
+optional PowerShell developer wrappers.
 See `README.md` and `docs/code-review.md` for behavior and remaining limitations.
 
 ## Delivery and local installations
@@ -31,14 +32,14 @@ after application scaffolding or source code is added, then update this file.
 | --- | --- |
 | Package manager | Inapplicable: no external managed packages or lockfiles; do not add a package manager without need. |
 | Framework | .NET Framework 4.x, C# 5-compatible sources, WinForms and RDP ActiveX; x64 Windows. |
-| Dependency installation | No managed dependency install. Elevated `.\scripts\setup.ps1` downloads portable Sunshine and changes Windows settings; do not use it merely to validate code. |
+| Dependency installation | No managed dependency install. `ChildStream.exe -setup` (or `scripts/setup.ps1`) changes Windows settings and registers the helper; it downloads no host. Do not run setup merely to validate code. |
 | Environment setup | No secrets or `.env` required. Uses standard Windows `SystemRoot` and `COMPUTERNAME`; runtime credentials are user-scoped DPAPI in ignored `cred.bin`. |
 | Development server | Inapplicable: native desktop app. Build, then launch `ChildStream.exe` for a separately authorized interactive smoke test. |
 | Lint | No dedicated linter; `.\scripts\test.ps1` parses PowerShell, and builds treat compiler warnings as errors. `git diff --check` checks whitespace. |
 | Type-check | C# compiler performs type checking during `.\scripts\build.ps1` and `.\scripts\test.ps1`. |
-| Tests | `.\scripts\test.ps1` from repository root; 92 C# + 6 PowerShell + 3 packaging cases. No admin rights or host-setting changes. Compatible with Windows PowerShell 5.1 and PowerShell 7. |
+| Tests | `.\scripts\test.ps1` from repository root; 150 C# + 7 PowerShell + 3 packaging cases. No admin rights or host-setting changes. Compatible with Windows PowerShell 5.1 and PowerShell 7. Local pipe tests require peers outside app-container isolation. |
 | Production build | `.\scripts\build.ps1` from repository root; emits ignored `ChildStream.exe`; `.\scripts\package.ps1` rebuilds and creates executable/portable/source ZIPs and SHA-256 checksums in ignored `dist`, using `Framework64\v4.0.30319\csc.exe`. No elevation needed. |
-| CI | `.github/workflows/checks.yml` builds and tests on Windows under both PowerShell versions, packages once and retains artifacts for 30 days. |
+| CI | `.github/workflows/checks.yml` builds and tests on Windows under both PowerShell versions and retains only the compiled EXE for 30 days. Package tests use temporary fixtures; optional bundles are not routine deliverables. |
 
 When project files become available:
 

@@ -16,7 +16,7 @@ static class LauncherPolicy
         }
         return new HostSnapshot(attached ? HostState.Checking : HostState.Waiting, attached ? "Choose the host to use in the child desktop." : "A streaming host was detected. Start the child desktop to choose and run its separate instance.", 0);
     }
-    public static string SettingsFeedback(bool copied) { return copied ? "Host web UI URL copied. Paste it into a browser on your normal desktop." : "Browser requested on your normal desktop. If nothing opens, copy the Host web UI URL into your browser."; }
+    public static string SettingsFeedback(bool copied) { return copied ? "Host web UI URL copied. Paste it into a browser on your normal desktop." : "Browser requested. If nothing opens, copy the Host web UI URL into your browser."; }
     public static bool CanStartHost(HostSnapshot status, bool connected)
     {
         return connected && HostConfiguration.IsValidPort(status.BasePort) && (status.State == HostState.Stopped || status.State == HostState.Error);

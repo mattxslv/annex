@@ -16,6 +16,8 @@ docs/pairing.md
 docs/launcher-surface.md
 docs/superpowers/specs/2026-10-16-streaming-launcher-design.md
 docs/superpowers/plans/2026-10-16-streaming-launcher.md
+docs/superpowers/specs/2026-10-17-simple-host-and-app-compatibility-design.md
+docs/superpowers/plans/2026-10-17-simple-host-and-app-compatibility.md
 scripts/build.ps1
 scripts/setup.ps1
 scripts/setup-common.ps1

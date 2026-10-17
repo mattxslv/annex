@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-16T15:56:53Z",
+  "generatedAt": "2026-10-17T12:18:22Z",
   "title": "Design System: ChildStream",
   "extensions": {
     "colorMeta": {
@@ -74,7 +74,7 @@
       },
       "field-label": {
         "displayName": "Field label",
-        "purpose": "Client address and Sunshine web UI row labels."
+        "purpose": "Client address and Host web UI row labels."
       }
     }
   },
@@ -83,8 +83,8 @@
       "name": "Primary button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Documentation preview of an enabled native primary action. Source: LauncherWindow.Button/StyleButton. Browser outline and hover affordances illustrate interaction only; Windows renders the product's actual focus, hover and press states.",
-      "html": "<button class=\"ds-primary\" type=\"button\" aria-label=\"Start Sunshine\">Start Sunshine</button>",
+      "description": "Documentation preview of an enabled native primary action, illustrated by the selected host's Start Apollo label. Source: LauncherWindow.Button/StyleButton. Browser outline and hover affordances illustrate interaction only; Windows renders the product's actual focus, hover and press states.",
+      "html": "<button class=\"ds-primary\" type=\"button\" aria-label=\"Start Apollo\">Start Apollo</button>",
       "css": ".ds-primary { font: 400 9.5pt 'Segoe UI'; color: #FFFFFF; background: #215CDD; border: 1px solid #215CDD; border-radius: 0; padding: 3px 10px; min-height: 38px; } .ds-primary:hover { cursor: default; } .ds-primary:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-primary { color: ButtonText; background: ButtonFace; border-color: ButtonText; } }"
     },
     {
@@ -99,8 +99,8 @@
       "name": "Disabled primary button",
       "kind": "button",
       "refersTo": "button-disabled",
-      "description": "Documentation preview of the disabled native primary control. Disabled fill, text and border are shared with secondary controls; this original primary retains its 38-unit minimum height. The unavailable-host preview uses this state.",
-      "html": "<button class=\"ds-disabled\" type=\"button\" disabled>Start Sunshine</button>",
+      "description": "Documentation preview of a disabled native primary control for a selected host. Disabled fill, text and border are shared with secondary controls; an original primary retains its 38-unit minimum height. This is an availability state, not evidence that a detected host supports child startup.",
+      "html": "<button class=\"ds-disabled\" type=\"button\" disabled>Start Apollo</button>",
       "css": ".ds-disabled { font: 400 9.5pt 'Segoe UI'; color: #526579; background: #E9EEF4; border: 1px solid #D9E2EC; border-radius: 0; padding: 3px 10px; min-height: 38px; } @media (forced-colors: active) { .ds-disabled { color: GrayText; background: ButtonFace; border-color: GrayText; } }"
     },
     {
@@ -108,22 +108,22 @@
       "kind": "custom",
       "refersTo": "address-field",
       "description": "Documentation preview of the native three-column table with a connected, running host and synthetic addresses. Both read-only text boxes stretch between auto-sized labels and copy actions; constructor widths are not fixed runtime dimensions. Canvas stands in for SystemColors.Window. Windows owns product metrics and focus rendering; this HTML/CSS is a design-panel illustration.",
-      "html": "<section class=\"ds-pairing\" aria-label=\"Pairing addresses: running\"><span class=\"ds-pairing-label\">Client address</span><input class=\"ds-pairing-field\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"gaming-pc:48989\"><button class=\"ds-pairing-copy\" type=\"button\">Copy address</button><span class=\"ds-pairing-label\">Sunshine web UI</span><input class=\"ds-pairing-field\" aria-label=\"Sunshine web UI URL\" title=\"Open this on your normal PC desktop. You do not need Chrome inside the child desktop.\" readonly value=\"https://127.0.0.1:48990/\"><button class=\"ds-pairing-copy\" type=\"button\">Copy settings URL</button></section>",
+      "html": "<section class=\"ds-pairing\" aria-label=\"Pairing addresses: running\"><span class=\"ds-pairing-label\">Client address</span><input class=\"ds-pairing-field\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"gaming-pc:48989\"><button class=\"ds-pairing-copy\" type=\"button\">Copy address</button><span class=\"ds-pairing-label\">Host web UI</span><input class=\"ds-pairing-field\" aria-label=\"Sunshine web UI URL\" title=\"Open this on your normal PC desktop. You do not need Chrome inside the child desktop.\" readonly value=\"https://127.0.0.1:48990/\"><button class=\"ds-pairing-copy\" type=\"button\">Copy settings URL</button></section>",
       "css": ".ds-pairing { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 6px 8px; align-items: start; font: 400 9.5pt 'Segoe UI'; color: #182838; } .ds-pairing-label { min-width: 112px; font-weight: 700; align-self: center; } .ds-pairing-field { min-width: 0; font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid ButtonText; border-radius: 0; margin-top: 5px; } .ds-pairing-copy { font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid #C3CFDD; border-radius: 0; padding: 3px 10px; min-height: 30px; justify-self: start; } .ds-pairing-copy:disabled { color: #526579; background: #E9EEF4; border-color: #D9E2EC; } .ds-pairing-field:hover { cursor: text; } .ds-pairing-copy:hover { cursor: default; } .ds-pairing-field:focus-visible, .ds-pairing-copy:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-pairing, .ds-pairing-field { color: CanvasText; } .ds-pairing-copy { color: ButtonText; background: ButtonFace; border-color: ButtonText; } .ds-pairing-copy:disabled { color: GrayText; background: ButtonFace; border-color: GrayText; } }"
     },
     {
       "name": "Checking host status",
       "kind": "custom",
       "refersTo": "host-status",
-      "description": "Documentation preview of the corrected initial checking presentation, grounded in LauncherWindow.SetHost and LauncherPolicy.ForSession. Start/settings actions are absent and the previous child address is not retained.",
-      "html": "<section class=\"ds-checking\" aria-label=\"Streaming host\"><h3>Checking Sunshine</h3><p>Checking Sunshine in the attached child desktop...</p></section>",
+      "description": "Documentation preview of the initial generic checking state, grounded in LauncherWindow.SetHost and LauncherPolicy.ForSession. The selected host name replaces host when known. Start/settings actions are absent and the previous child address is not retained.",
+      "html": "<section class=\"ds-checking\" aria-label=\"Streaming host\"><h3>Checking host</h3><p>Checking the host in the attached child desktop...</p></section>",
       "css": ".ds-checking { max-width: 252px; color: #182838; background: Canvas; } .ds-checking h3 { font: 700 14pt 'Segoe UI'; margin: 0 0 6px; } .ds-checking p { font: 400 9.5pt 'Segoe UI'; color: #526579; margin: 0 0 12px; } @media (forced-colors: active) { .ds-checking, .ds-checking p { color: CanvasText; } }"
     },
     {
       "name": "Running host status",
       "kind": "custom",
       "refersTo": "host-status-running",
-      "description": "Documentation preview of the text-labelled running state. The supplementary green heading is replaced with Windows system text in high contrast; the native product exposes the settings action only after its state checks.",
+      "description": "Documentation preview of a selected Sunshine instance's text-labelled running state. Host labels follow the current selection; Running does not certify a stream. The supplementary green heading yields to Windows system text in high contrast; settings actions remain gated by session and URL checks.",
       "html": "<section class=\"ds-running\" aria-label=\"Streaming host\"><h3>Sunshine running</h3><p>Sunshine is running in the child desktop. Pair your compatible client with this host.</p></section>",
       "css": ".ds-running { max-width: 252px; background: Canvas; } .ds-running h3 { font: 700 14pt 'Segoe UI'; color: #146847; margin: 0 0 6px; } .ds-running p { font: 400 9.5pt 'Segoe UI'; color: #526579; margin: 0 0 12px; } @media (forced-colors: active) { .ds-running h3, .ds-running p { color: CanvasText; } }"
     },
@@ -131,30 +131,38 @@
       "name": "Stopped pairing address rows",
       "kind": "custom",
       "refersTo": "address-field",
-      "description": "Documentation preview of the stopped-host copy policy. The validated synthetic client address remains copyable; the Sunshine URL is unavailable and Copy settings URL is disabled. The real settings-copy action also requires a connected target and is revoked while ending.",
-      "html": "<section class=\"ds-pairing\" aria-label=\"Pairing addresses: stopped\"><span class=\"ds-pairing-label\">Client address</span><input class=\"ds-pairing-field\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"gaming-pc:48989\"><button class=\"ds-pairing-copy\" type=\"button\">Copy address</button><span class=\"ds-pairing-label\">Sunshine web UI</span><input class=\"ds-pairing-field\" aria-label=\"Sunshine web UI URL\" title=\"Open this on your normal PC desktop. You do not need Chrome inside the child desktop.\" readonly value=\"Available when Sunshine is running\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy settings URL</button></section>",
+      "description": "Documentation preview of the current stopped-host policy. Both address fields show Available when host is running and both copy actions are disabled. An attached Running snapshot with a valid port is required; a known stopped port is no longer a copyable client address.",
+      "html": "<section class=\"ds-pairing\" aria-label=\"Pairing addresses: stopped\"><span class=\"ds-pairing-label\">Client address</span><input class=\"ds-pairing-field\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"Available when host is running\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy address</button><span class=\"ds-pairing-label\">Host web UI</span><input class=\"ds-pairing-field\" aria-label=\"Sunshine web UI URL\" title=\"Open this on your normal PC desktop. You do not need Chrome inside the child desktop.\" readonly value=\"Available when host is running\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy settings URL</button></section>",
       "css": ".ds-pairing { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 6px 8px; align-items: start; font: 400 9.5pt 'Segoe UI'; color: #182838; } .ds-pairing-label { min-width: 112px; font-weight: 700; align-self: center; } .ds-pairing-field { min-width: 0; font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid ButtonText; border-radius: 0; margin-top: 5px; } .ds-pairing-copy { font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid #C3CFDD; border-radius: 0; padding: 3px 10px; min-height: 30px; justify-self: start; } .ds-pairing-copy:disabled { color: #526579; background: #E9EEF4; border-color: #D9E2EC; } .ds-pairing-field:hover { cursor: text; } .ds-pairing-copy:hover { cursor: default; } .ds-pairing-field:focus-visible, .ds-pairing-copy:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-pairing, .ds-pairing-field { color: CanvasText; } .ds-pairing-copy { color: ButtonText; background: ButtonFace; border-color: ButtonText; } .ds-pairing-copy:disabled { color: GrayText; background: ButtonFace; border-color: GrayText; } }"
     },
     {
       "name": "Unknown pairing address rows",
       "kind": "custom",
       "refersTo": "address-field",
-      "description": "Documentation preview shared by unavailable and checking captures: both fields explain their prerequisites and both unknown-copy actions are disabled. This replaces the former enabled unavailable-address behavior; no fictitious URL is offered.",
-      "html": "<section class=\"ds-pairing\" aria-label=\"Pairing addresses: unknown\"><span class=\"ds-pairing-label\">Client address</span><input class=\"ds-pairing-field\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"Available after host check\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy address</button><span class=\"ds-pairing-label\">Sunshine web UI</span><input class=\"ds-pairing-field\" aria-label=\"Sunshine web UI URL\" title=\"Open this on your normal PC desktop. You do not need Chrome inside the child desktop.\" readonly value=\"Available when Sunshine is running\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy settings URL</button></section>",
+      "description": "Documentation preview shared by missing, unavailable and checking states: both fields show the running-host prerequisite and both copy actions are disabled. A missing optional host is distinct from a failed helper or discovery diagnostic.",
+      "html": "<section class=\"ds-pairing\" aria-label=\"Pairing addresses: unknown\"><span class=\"ds-pairing-label\">Client address</span><input class=\"ds-pairing-field\" aria-label=\"Client pairing address\" title=\"Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.\" readonly value=\"Available when host is running\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy address</button><span class=\"ds-pairing-label\">Host web UI</span><input class=\"ds-pairing-field\" aria-label=\"Host web UI URL\" title=\"Open this on your normal PC desktop. You do not need Chrome inside the child desktop.\" readonly value=\"Available when host is running\"><button class=\"ds-pairing-copy\" type=\"button\" disabled>Copy settings URL</button></section>",
       "css": ".ds-pairing { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 6px 8px; align-items: start; font: 400 9.5pt 'Segoe UI'; color: #182838; } .ds-pairing-label { min-width: 112px; font-weight: 700; align-self: center; } .ds-pairing-field { min-width: 0; font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid ButtonText; border-radius: 0; margin-top: 5px; } .ds-pairing-copy { font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid #C3CFDD; border-radius: 0; padding: 3px 10px; min-height: 30px; justify-self: start; } .ds-pairing-copy:disabled { color: #526579; background: #E9EEF4; border-color: #D9E2EC; } .ds-pairing-field:hover { cursor: text; } .ds-pairing-copy:hover { cursor: default; } .ds-pairing-field:focus-visible, .ds-pairing-copy:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-pairing, .ds-pairing-field { color: CanvasText; } .ds-pairing-copy { color: ButtonText; background: ButtonFace; border-color: ButtonText; } .ds-pairing-copy:disabled { color: GrayText; background: ButtonFace; border-color: GrayText; } }"
     },
     {
       "name": "Expanded pairing instructions",
       "kind": "custom",
       "refersTo": "button-secondary",
-      "description": "Documentation preview of the expanded native help state. Show pairing steps becomes Hide pairing steps with a matching accessible name. The product uses a read-only, word-wrapped multiline TextBox with Windows CRLF paragraphs, native vertical scrolling, and a bounded 170-unit baseline height. Later numbered steps are reached by scrolling. Certificate/account work and a real-client stream remain human acceptance steps.",
+      "description": "Documentation preview of the expanded native help state for a selected Sunshine instance. Show pairing steps becomes Hide pairing steps with a matching accessible name. Product guidance substitutes the selected host name. It uses a read-only multiline TextBox with Windows CRLF paragraphs, vertical scrolling and a bounded 170-unit baseline height. Certificate/account work and streaming remain separate acceptance steps.",
       "html": "<section class=\"ds-guide\"><button class=\"ds-guide-toggle\" type=\"button\" aria-expanded=\"true\" aria-label=\"Hide pairing steps\">Hide pairing steps</button><textarea class=\"ds-guide-text\" aria-label=\"Pairing instructions\" readonly>1. On this PC's normal desktop, open https://127.0.0.1:48990/ in your browser. A browser inside the child desktop is not required.\r\n\r\n2. First time: review Sunshine's local certificate and create a Sunshine web username/password. This is separate from your Windows password.\r\n\r\n3. On your phone or other device, add gaming-pc:48989 in Moonlight. If the PC name does not resolve, use this PC's LAN IP with the same port. Select the host to display a PIN.\r\n\r\n4. In Sunshine on this PC, open the PIN tab and enter that PIN and a device name. Return to Moonlight and select Desktop. Keep ChildStream attached; minimize to tray while playing.</textarea></section>",
       "css": ".ds-guide { color: #182838; font: 400 9.5pt 'Segoe UI'; } .ds-guide-toggle { font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid #C3CFDD; border-radius: 0; padding: 3px 10px; min-height: 30px; margin: 0 6px 6px 0; } .ds-guide-text { display: block; width: 100%; height: 170px; resize: none; overflow-y: scroll; white-space: pre-wrap; font: 400 9.5pt 'Segoe UI'; color: #182838; background: Canvas; border: 1px solid ButtonText; border-radius: 0; margin: 3px 0 8px; } .ds-guide-toggle:hover { cursor: default; } .ds-guide-text:hover { cursor: text; } .ds-guide-toggle:focus-visible, .ds-guide-text:focus-visible { outline: auto; } @media (forced-colors: active) { .ds-guide, .ds-guide-text { color: CanvasText; } .ds-guide-toggle { color: ButtonText; background: ButtonFace; border-color: ButtonText; } }"
+    },
+    {
+      "name": "Child app picker",
+      "kind": "custom",
+      "refersTo": "button-secondary",
+      "description": "Documentation preview of the owned native ChildAppWindow. It uses system colors, the existing body font, a two-column ListView, a scrollable read-only result and native visual-style buttons. Open in child is disabled until an available registered app is selected. This browser illustration performs no launch; dispatch and rendered app compatibility are separate facts.",
+      "html": "<section class=\"ds-apps\" aria-label=\"Open in child desktop\"><p class=\"ds-apps-intro\">Choose an app to open in the attached child desktop.</p><table class=\"ds-apps-list\" aria-label=\"Installed child apps\"><thead><tr><th>App</th><th>Location</th></tr></thead><tbody><tr><td>Chrome</td><td>C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe</td></tr><tr><td>Wallpaper Engine</td><td>C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe</td></tr></tbody></table><textarea class=\"ds-apps-result\" aria-label=\"Child app result\" readonly>Browsers use a separate child profile. Check the app's window in the child desktop after opening it.</textarea><div class=\"ds-apps-actions\"><button class=\"ds-apps-button\" type=\"button\" disabled>Open in child</button><button class=\"ds-apps-button\" type=\"button\">Browse app...</button><button class=\"ds-apps-button\" type=\"button\">Refresh apps</button></div></section>",
+      "css": ".ds-apps { padding: 18px; color: CanvasText; background: Canvas; font: 400 9.5pt 'Segoe UI'; } .ds-apps-intro { margin: 0 0 10px; } .ds-apps-list { width: 100%; table-layout: fixed; border: 1px solid ButtonShadow; border-spacing: 0; margin-bottom: 10px; } .ds-apps-list th, .ds-apps-list td { text-align: left; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-apps-list th:first-child, .ds-apps-list td:first-child { width: 145px; } .ds-apps-result { display: block; width: 100%; height: 76px; resize: none; overflow-y: scroll; font: 400 9.5pt 'Segoe UI'; color: CanvasText; background: Canvas; border: none; } .ds-apps-actions { display: flex; flex-wrap: wrap; } .ds-apps-button { font: 400 9.5pt 'Segoe UI'; min-height: 32px; padding: 2px 8px; margin: 6px 8px 0 0; } .ds-apps-button:hover { cursor: default; } .ds-apps-result:hover { cursor: text; } .ds-apps-button:focus-visible, .ds-apps-result:focus-visible { outline: auto; }"
     }
   ],
   "narrative": {
     "northStar": "The native desktop companion",
-    "overview": "ChildStream uses a quiet, readable Windows surface around the desktop it controls. The native window, familiar controls and restrained palette support a working desktop rather than competing with it. Session identity and explicit text status carry the hierarchy; color reinforces that information.\n\nThis documents the implemented WinForms extension in `src/LauncherWindow.cs`, `src/LauncherPolicy.cs` and `src/LauncherApplication.cs`, under the approved direction in `.impeccable/surfaces/src-launcherwindow-cs.md`, `docs/launcher-surface.md` and `PRODUCT.md`. It is a native design system; the HTML/CSS snippets in `.impeccable/design.json` are documentation previews for the design panel and are not product components or an implementation framework.",
+    "overview": "ChildStream uses a quiet, readable Windows surface around the desktop it controls. The native window, familiar controls and restrained palette support a working desktop rather than competing with it. Session identity and explicit text status carry the hierarchy; color reinforces that information.\n\nThis documents the implemented WinForms extension in `src/LauncherWindow.cs`, `src/ChildAppWindow.cs`, `src/LauncherPolicy.cs` and `src/LauncherApplication.cs`, under the approved direction in `.impeccable/surfaces/src-launcherwindow-cs.md`, the host/app compatibility design and `PRODUCT.md`. It is a native design system; the HTML/CSS snippets in `.impeccable/design.json` are documentation previews for the design panel and are not product components or an implementation framework.",
     "keyCharacteristics": [
       "Native Windows chrome, controls, focus rendering and confirmation dialogs.",
       "Pale slate surround, system window surfaces, dark text and blue primary actions.",
@@ -182,7 +190,7 @@
       "**Do** keep the native desktop workspace visually dominant.",
       "**Do** identify the child session and host state in readable text.",
       "**Do** use Segoe UI and preserve Windows focus, mnemonics and system-color overrides.",
-      "**Do** show Checking Sunshine distinctly while the first child-session status is pending.",
+      "**Do** show the selected host's checking state distinctly while the first child-session status is pending.",
       "**Do** label synthetic previews and retain their evidence limits."
     ],
     "donts": [

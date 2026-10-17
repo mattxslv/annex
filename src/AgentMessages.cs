@@ -84,14 +84,20 @@ sealed class AgentService
     public AgentService(string root, int session, IHostDiscoverySource source, Func<string, HostProcess[]> processes, Func<ChildHostProfile, HostLaunchReceipt> launch, Func<bool> isChild) {
         this.root = root; this.session = session; this.source = source; this.processes = processes; this.launch = launch; this.isChild = isChild; selected = HostSelectionStore.Load(Path.Combine(root, "host-selection.txt"));
     }
-    string Key(HostInstallation host) { return HostProfiles.Digest(instance + "|" + host.Id); }
-    bool StillSelected(HostInstallation host) { return isChild() && selected == host.Id && HostDiscovery.Find(root, source).Installations.Any(h => h.Id == host.Id); }
+    string Key(HostInstallation host) { return HostProfiles.Digest(instance + "|" + host.Id + "|" + (profile != null && profile.Installation.Id == host.Id ? profile.Identity : "unprepared")); }
+    bool StillSelected(ChildHostProfile prepared) { return isChild() && selected == prepared.Installation.Id && prepared.CurrentIdentity() == prepared.Identity && HostDiscovery.Find(root, source).Installations.Any(h => h.Id == prepared.Installation.Id); }
     public AgentReply Handle(AgentRequest request) {
         AgentCodec.Encode(request); // Validate at the service boundary even for an in-process caller.
         lock (gate) {
             if (request.Command == "LIST_APPS" || request.Command == "REGISTER_APP" || request.Command == "LAUNCH_APP") return HandleApps(request);
             var found = HostDiscovery.Find(root, source); var choice = HostSelection.Choose(found.Installations, HostSelectionStore.Load(Path.Combine(root, "host-selection.txt")) ?? selected, null);
             string diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512);
+            // A pending elevation owns the original controller until its worker settles.
+            // Neither configuration refresh nor a different saved selection may replace it.
+            if (controller != null && controller.StartInProgress) return Bounded(new AgentReply {
+                SelectionId = Key(profile.Installation), Hosts = Describe(found.Installations),
+                Status = new HostSnapshot(HostState.Starting, "Host startup is still pending in the child desktop. Check its elevation prompt before changing settings or starting another host.", profile.BasePort), Diagnostic = diagnostic
+            });
             if (request.Command == "SELECT_HOST") {
                 HostInstallation target = found.Installations.FirstOrDefault(h => Key(h) == request.SelectionId);
                 if (controller != null && controller.GetStatus().State == HostState.Starting) diagnostic = "Wait for the current host startup to finish before changing hosts.";
@@ -101,7 +107,7 @@ sealed class AgentService
             HostInstallation current = choice.Selected;
             if (current == null) {
                 selected = null; profile = null; controller = null;
-                return Bounded(new AgentReply { Status = new HostSnapshot(found.Installations.Length == 0 ? HostState.Missing : HostState.Checking, found.Installations.Length == 0 ? "No streaming host detected. Install Sunshine, Apollo or VibePollo to stream; you can still use the child desktop." : "Choose the host to use in the child desktop.", 0), Hosts = Describe(found.Installations), Diagnostic = diagnostic });
+                return Bounded(new AgentReply { Status = LauncherPolicy.DiscoverySnapshot(found, true), Hosts = Describe(found.Installations), Diagnostic = diagnostic });
             }
             selected = current.Id;
             var reply = new AgentReply { SelectionId = Key(current), Hosts = Describe(found.Installations), Diagnostic = diagnostic };
@@ -109,10 +115,11 @@ sealed class AgentService
                 if (profile == null || profile.Installation.Id != current.Id || profile.CurrentIdentity() != profile.Identity) {
                     profile = HostProfiles.Prepare(root, current, HostPorts.Occupied()); var prepared = profile;
                     controller = new HostController(prepared, session, () => processes(prepared.Installation.ExecutablePath), () => {
-                        lock (gate) { if (!StillSelected(prepared.Installation)) throw new IOException("The child session or selected host changed. Refresh and confirm startup again."); }
+                        lock (gate) { if (!StillSelected(prepared)) throw new IOException("The child session, selected host or its configuration changed. Refresh and confirm startup again."); }
                         return launch(prepared);
                     });
                 }
+                reply.SelectionId = Key(current); reply.Hosts = Describe(found.Installations);
                 reply.Status = controller.GetStatus();
                 if (request.Command == "START_HOST") {
                     if (!isChild()) reply.Status = new HostSnapshot(HostState.Unavailable, "This helper is not in the actual child desktop. Reconnect or repair the helper.", 0);

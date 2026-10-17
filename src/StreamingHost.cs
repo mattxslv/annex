@@ -118,6 +118,7 @@ sealed class HostController
     {
         lock (gate) { return Inspect(); }
     }
+    public bool StartInProgress { get { lock (gate) { return starting; } } }
 
     HostSnapshot Inspect()
     {

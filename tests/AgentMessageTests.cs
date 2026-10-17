@@ -1,14 +1,15 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 static class AgentMessageTests
 {
     static void Assert(bool value, string message) { if (!value) throw new Exception(message); }
     static bool Refused(Action action) { try { action(); return false; } catch (InvalidDataException) { return true; } }
     sealed class Source : IHostDiscoverySource {
-        public HostCandidate Candidate; public string Version = "2026.914.233613";
-        public System.Collections.Generic.IEnumerable<HostCandidate> Candidates(string root) { return Candidate == null ? new HostCandidate[0] : new[] { Candidate }; }
+        public HostCandidate Candidate; public string Version = "2026.914.233613"; public bool Fail;
+        public System.Collections.Generic.IEnumerable<HostCandidate> Candidates(string root) { if (Fail) throw new IOException("fixture discovery failed"); return Candidate == null ? new HostCandidate[0] : new[] { Candidate }; }
         public bool Exists(string path) { return Candidate != null && File.Exists(path); }
         public HostFileMetadata Inspect(string path) { return new HostFileMetadata("Sunshine", "Sunshine", Version, Version); }
     }
@@ -50,6 +51,36 @@ static class AgentMessageTests
                 var service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { launches++; throw new Exception("must not launch"); }, () => false);
                 var status = service.Handle(new AgentRequest { Command = "STATUS" }); var result = service.Handle(new AgentRequest { Command = "START_HOST", SelectionId = status.SelectionId }); Assert(result.Status.State == HostState.Unavailable && launches == 0, "non-child start authorized");
             } finally { Directory.Delete(root, true); }
+        });
+        check("edited child profile expires the previous host startup approval", delegate {
+            string root = Path.Combine(Path.GetTempPath(), "childstream-review-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            try {
+                string exe = Path.Combine(root, "sunshine.exe"); File.WriteAllText(exe, "fixture"); var source = new Source { Candidate = new HostCandidate(exe, HostKind.Sunshine, "registry") }; int starts = 0;
+                var service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { Interlocked.Increment(ref starts); throw new IOException("fixture launch"); }, () => true);
+                var before = service.Handle(new AgentRequest { Command = "STATUS" }); string config = Directory.GetFiles(Path.Combine(root, "Hosts"), "sunshine.conf", SearchOption.AllDirectories).Single();
+                File.WriteAllText(config, "port = 49099\ncapture = wgc\n");
+                var after = service.Handle(new AgentRequest { Command = "START_HOST", SelectionId = before.SelectionId });
+                Assert(after.Status.State != HostState.Starting && after.SelectionId != before.SelectionId && starts == 0, "edited config launched using old approval");
+            } finally { Directory.Delete(root, true); }
+        });
+        check("pending host launch survives config refresh without a second dispatch", delegate {
+            string root = Path.Combine(Path.GetTempPath(), "childstream-review-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            using (var entered = new ManualResetEvent(false)) using (var release = new ManualResetEvent(false)) {
+                AgentService service = null;
+                try {
+                    string exe = Path.Combine(root, "sunshine.exe"); File.WriteAllText(exe, "fixture"); var source = new Source { Candidate = new HostCandidate(exe, HostKind.Sunshine, "registry") }; int starts = 0;
+                    service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { Interlocked.Increment(ref starts); entered.Set(); release.WaitOne(); return new HostLaunchReceipt(42, 123, profile.Identity); }, () => true);
+                    var before = service.Handle(new AgentRequest { Command = "STATUS" }); service.Handle(new AgentRequest { Command = "START_HOST", SelectionId = before.SelectionId }); Assert(entered.WaitOne(3000), "fixture launch not entered");
+                    string config = Directory.GetFiles(Path.Combine(root, "Hosts"), "sunshine.conf", SearchOption.AllDirectories).Single(); File.WriteAllText(config, "port = 49199\ncapture = wgc\n");
+                    var refresh = service.Handle(new AgentRequest { Command = "STATUS" }); Assert(refresh.Status.State == HostState.Starting, "refresh lost pending launch ownership");
+                    service.Handle(new AgentRequest { Command = "START_HOST", SelectionId = refresh.SelectionId });
+                    Assert(!SpinWait.SpinUntil(() => Interlocked.CompareExchange(ref starts, 0, 0) > 1, 150), "second launch dispatched during pending elevation");
+                } finally { release.Set(); if (service != null) SpinWait.SpinUntil(() => service.Handle(new AgentRequest { Command = "STATUS" }).Status.State != HostState.Starting, 3000); Directory.Delete(root, true); }
+            }
+        });
+        check("helper discovery failure remains unknown rather than confirmed host absence", delegate {
+            var service = new AgentService(Path.GetTempPath(), 7, new Source { Fail = true }, path => new HostProcess[0], profile => { throw new Exception("must not launch"); }, () => true);
+            var reply = service.Handle(new AgentRequest { Command = "STATUS" }); Assert(reply.Status.State == HostState.Unknown && reply.Diagnostic.Contains("fixture discovery failed"), "failed inspection labeled no host");
         });
     }
 }

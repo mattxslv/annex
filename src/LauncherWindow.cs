@@ -87,8 +87,8 @@ sealed class LauncherWindow : Form
         copySettings = Button("Copy settings URL", false, (s, e) => {
             string url = LauncherPolicy.SettingsUrl(host);
             if (!connected || url == null) return;
-            try { Clipboard.SetText(url); SetNotice("Sunshine URL copied. Paste it into a browser on your normal desktop."); }
-            catch (Exception) { SetNotice("Clipboard is busy. Select and copy the Sunshine URL manually."); }
+            try { Clipboard.SetText(url); SetNotice(LauncherPolicy.SettingsFeedback(true)); }
+            catch (Exception) { SetNotice("Clipboard is busy. Select and copy the Host web UI URL manually."); }
         }); copySettings.Dock = DockStyle.None;
 
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1, Padding = new Padding(24), Margin = Padding.Empty };

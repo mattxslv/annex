@@ -5,10 +5,18 @@ static class LauncherPolicy
 {
     public static HostSnapshot ForSession(HostSnapshot previous, uint oldChild, uint newChild)
     {
-        if (newChild == 0) return new HostSnapshot(HostState.Waiting, "Attach the child desktop to check or start its streaming host.", 0);
+        if (newChild == 0) return oldChild == 0 ? previous : new HostSnapshot(HostState.Waiting, "Attach the child desktop to check or start its streaming host.", 0);
         if (oldChild != newChild) return new HostSnapshot(HostState.Checking, "Checking the host in the attached child desktop...", 0);
         return previous;
     }
+    public static HostSnapshot DiscoverySnapshot(HostDiscoveryResult found, bool attached) {
+        if (found.Installations.Length == 0) {
+            if (found.Diagnostics.Length != 0) return new HostSnapshot(HostState.Unknown, "Host discovery could not finish or verify an installation. Refresh or Browse to the host EXE. You can still start and use the child desktop.", 0);
+            return new HostSnapshot(HostState.Missing, "No streaming host detected. Install Sunshine, Apollo or VibePollo to stream; you can still start and use the child desktop.", 0);
+        }
+        return new HostSnapshot(attached ? HostState.Checking : HostState.Waiting, attached ? "Choose the host to use in the child desktop." : "A streaming host was detected. Start the child desktop to choose and run its separate instance.", 0);
+    }
+    public static string SettingsFeedback(bool copied) { return copied ? "Host web UI URL copied. Paste it into a browser on your normal desktop." : "Browser requested on your normal desktop. If nothing opens, copy the Host web UI URL into your browser."; }
     public static bool CanStartHost(HostSnapshot status, bool connected)
     {
         return connected && HostConfiguration.IsValidPort(status.BasePort) && (status.State == HostState.Stopped || status.State == HostState.Error);

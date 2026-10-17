@@ -30,6 +30,21 @@ static class LauncherTests
     }
     public static void Run(Action<string, Action> check)
     {
+        check("disconnected polling preserves local discovery until the session changes", delegate {
+            foreach (HostState state in new[] { HostState.Missing, HostState.Unknown, HostState.Waiting }) {
+                var discovery = new HostSnapshot(state, "local discovery result", 0);
+                Assert(Object.ReferenceEquals(discovery, LauncherPolicy.ForSession(discovery, 0, 0)), "poll erased local discovery");
+            }
+            Assert(LauncherPolicy.ForSession(new HostSnapshot(HostState.Running, "old child", 48989), 7, 0).State == HostState.Waiting, "disconnect kept stale child state");
+        });
+        check("preconnect discovery distinguishes failed scan and clean host absence", delegate {
+            var failed = new HostDiscoveryResult { Installations = new HostInstallation[0], Diagnostics = new[] { "inspection denied" } };
+            Assert(LauncherPolicy.DiscoverySnapshot(failed, false).State == HostState.Unknown, "failed scan appears absent");
+            failed.Diagnostics = new string[0]; Assert(LauncherPolicy.DiscoverySnapshot(failed, false).State == HostState.Missing, "clean empty scan not reported");
+        });
+        check("web UI feedback names the host generically across provider selections", delegate {
+            foreach (bool copied in new[] { true, false }) { string text = LauncherPolicy.SettingsFeedback(copied); Assert(text.Contains("Host web UI") && !text.Contains("Sunshine"), "provider-specific feedback mislabeled another host"); }
+        });
         check("no host and discovery errors leave a configured desktop available", delegate {
             using (var form = new LauncherWindow(false)) {
                 form.SetSession("Ready", "", false, true);

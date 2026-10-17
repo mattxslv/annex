@@ -49,7 +49,7 @@ sealed class LauncherApplication : IDisposable
         window.SettingsRequested += delegate {
             string url = LauncherPolicy.SettingsUrl(host);
             if (url != null && StillConnected(child) && TryOpen(url))
-                window.SetNotice("Browser requested on this desktop. If nothing opens, copy the Sunshine web UI URL below into Chrome.");
+                window.SetNotice(LauncherPolicy.SettingsFeedback(false));
         };
         window.GuideRequested += delegate { SetupRepair(); };
         window.RefreshHostsRequested += delegate { RequestHost(new AgentRequest { Command = "STATUS" }); };
@@ -196,7 +196,7 @@ sealed class LauncherApplication : IDisposable
         try {
             var found = await Task.Run(() => HostDiscovery.Find(root, new NativeHostDiscovery()));
             if (ending || window.IsDisposed || child != 0 || State() != 0) return;
-            window.SetDiscovery(new AgentReply { Status = new HostSnapshot(found.Installations.Length == 0 ? HostState.Missing : HostState.Waiting, found.Installations.Length == 0 ? "Install Sunshine, Apollo or VibePollo to stream. You can still start and use the child desktop." : "A streaming host was detected. Start the child desktop to choose and run its separate instance.", 0), Diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512) });
+            window.SetDiscovery(new AgentReply { Status = LauncherPolicy.DiscoverySnapshot(found, false), Diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512) });
             string registered = InstallationIdentity.Load(); if (registered != null && !HostController.SamePath(registered, root)) window.SetNotice("The helper is registered for " + registered + ". Open that folder's EXE, or use Setup / repair to register this folder.");
         } catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Host discovery did not finish: " + ex.Message); }
     }

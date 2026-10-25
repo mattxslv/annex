@@ -1,6 +1,6 @@
 # Compatibility and acceptance evidence
 
-ChildStream manages one Windows child desktop for the same Windows user. It can
+Annex manages one Windows child desktop for the same Windows user. It can
 start a separate Sunshine/Apollo instance with child-only settings and a complete
 free TCP/UDP port family. It does not modify streaming protocols or guarantee
 universal application compatibility.
@@ -13,7 +13,7 @@ observations on one development PC, not results on every supported Windows build
 
 | Component | Version | Observed result | Remaining acceptance |
 | --- | --- | --- | --- |
-| ChildStream | Current review/reliability source | Connected viewer and matching installed helper; prompt declined without repeated polling prompts; helper replaced without signing out child | Fresh Windows setup, real no-host installation, additional DPI/accessibility and unrelated-session sign-out tests |
+| Annex | Current review/reliability source | Connected viewer and matching installed helper; prompt declined without repeated polling prompts; helper replaced without signing out child | Fresh Windows setup, real no-host installation, additional DPI/accessibility and unrelated-session sign-out tests |
 | Sunshine | 2026.914.233613 | Main PID 1956 remained in console; separate child PID 25556 started after human UAC approval; main TCP 47984/47989/47990/48010 and child TCP 48984/48989/48990/49010 listened concurrently | First-use web account, client pairing, child display capture, audio, encoder load and simultaneous streams |
 | Chrome | 155.0.8059.80 | Main browser stayed open; child process used Chrome-Child profile; actual Google page loaded in child | Sign-in, media/DRM and browser extensions |
 | Steam | 11.12.30.07 | Cross-session conflict preserved main Steam; after explicit user-approved handoff, Steam PID 12016 in child rendered store and library | Account reauthentication, other launchers, concurrent different-user configurations |

@@ -1,4 +1,4 @@
-# Run ChildStream and pair a client
+# Run Annex and pair a client
 
 The **Host web UI** URL belongs in a browser on the host PC's normal desktop.
 The **Client address** belongs in Moonlight or another compatible client on the
@@ -6,9 +6,9 @@ other device. Chrome inside the child desktop is optional for pairing.
 
 ## Start the desktop
 
-1. Keep `ChildStream.exe` in a permanent, private, writable installation folder.
+1. Keep `Annex.exe` in a permanent, private, writable installation folder.
    On this development PC the installed copy is
-   `C:\Users\Admin\Downloads\ChildStream-portable\ChildStream.exe`.
+   `C:\Users\Admin\Downloads\Annex-portable\Annex.exe`.
    Repository/dist EXEs are build outputs, not that installation's helper.
 2. Open the installed EXE. For a new Windows installation, select **Setup / repair**
    and handle elevation yourself. Setup is contained in the EXE; source files,
@@ -24,7 +24,7 @@ other device. Chrome inside the child desktop is optional for pairing.
    yourself. Declining startup leaves the desktop usable; Start remains available.
    VibePollo is detected but independent child startup is not supported yet.
 
-The main streaming host can remain open. ChildStream creates separate child
+The main streaming host can remain open. Annex creates separate child
 configuration, certificates, credentials, app list and ports. It never closes or
 reconfigures the console host. Concurrent encoding/capture still needs validation
 on the particular host/GPU combination.
@@ -48,13 +48,13 @@ on the particular host/GPU combination.
 2. Choose **Add PC** in the client and enter the displayed **Client address**,
    for example `PC-NAME:48989`. If the name does not resolve, substitute the host's
    active LAN IPv4 address and keep the displayed port. An example such as
-   `192.168.1.50:48989` is not a fixed ChildStream address.
+   `192.168.1.50:48989` is not a fixed Annex address.
 3. Select that host in the client and read its pairing PIN.
 4. In the host PC's normal-desktop browser, open the **PIN** tab of the child's
    host web UI. Enter the current client PIN and a device name, then submit.
 5. Return to the client and choose **Desktop**. Open games through Steam or their
    installed launchers in that streamed desktop.
-6. Keep ChildStream attached. **Minimize to tray** frees the physical desktop.
+6. Keep Annex attached. **Minimize to tray** frees the physical desktop.
    Verify video, audio, keyboard/mouse and controller separately before adding
    HDR, higher frame rates or different codecs. Controller drivers are installed
    separately according to the host vendor's documentation.
@@ -65,7 +65,7 @@ and host-specific extensions require their own device tests; see the
 
 ## Open Chrome, Steam and other apps
 
-Use **Open app** in ChildStream. Select an app, then **Open in child**. **Browse
+Use **Open app** in Annex. Select an app, then **Open in child**. **Browse
 app...** accepts an installed local EXE, not a shortcut, script or command string.
 
 Chrome and Edge use persistent separate profiles automatically. Main Chrome can
@@ -75,7 +75,7 @@ If the launcher exits with code 0, check the child's taskbar: an existing app ma
 have received the request without creating a new long-lived launcher process.
 
 Steam for the same Windows user needs a handoff: exit Steam on the main desktop,
-then open it through ChildStream. ChildStream never closes the main Steam without
+then open it through Annex. Annex never closes the main Steam without
 your choice. Licensing, account login, external launchers and anti-cheat restrictions
 remain game-specific. Wallpaper Engine can share settings between sessions; inspect
 the child monitor and playback mapping before changing them.
@@ -84,7 +84,7 @@ the child monitor and playback mapping before changing them.
 
 Preserve `Sunshine`, `Hosts`, `cred.bin`, `display.cfg`, saved app/host selections
 and logs when updating the same folder. Close this installation's viewer and idle
-helper before replacing its EXE. Reopen it, then restart `ChildStream.exe -agent`
+helper before replacing its EXE. Reopen it, then restart `Annex.exe -agent`
 inside the existing child (a shortcut with `-agent` as its argument is sufficient).
 Setup / repair registers the helper for future logons. Saving work and signing out
 the child is another recovery option, but closes its applications.

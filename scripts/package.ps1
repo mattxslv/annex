@@ -21,26 +21,26 @@ foreach ($line in [IO.File]::ReadAllLines($manifest)) {
 }
 if (-not $files.Count) { throw 'Release file allowlist is empty.' }
 if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'build.ps1') }
-$executable = Join-Path $root 'ChildStream.exe'
-if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw 'ChildStream.exe is missing. Build before using -SkipBuild.' }
+$executable = Join-Path $root 'Annex.exe'
+if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw 'Annex.exe is missing. Build before using -SkipBuild.' }
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $output = Join-Path $root 'dist'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $temporaryFiles = @()
 try {
     $tag = [guid]::NewGuid().ToString('N')
-    $artifacts = @('ChildStream.exe', 'ChildStream-portable.zip', 'ChildStream-source.zip')
+    $artifacts = @('Annex.exe', 'Annex-portable.zip', 'Annex-source.zip')
     foreach ($name in $artifacts) {
         $temporary = Join-Path $output ($tag + '-' + $name)
         $temporaryFiles += $temporary
-        if ($name -eq 'ChildStream.exe') { Copy-Item -LiteralPath $executable -Destination $temporary; continue }
+        if ($name -eq 'Annex.exe') { Copy-Item -LiteralPath $executable -Destination $temporary; continue }
         $archive = [IO.Compression.ZipFile]::Open($temporary, [IO.Compression.ZipArchiveMode]::Create)
         try {
             foreach ($relative in $files) {
                 [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, (Join-Path $root $relative), $relative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
             }
-            if ($name -eq 'ChildStream-portable.zip') {
-                [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $executable, 'ChildStream.exe', [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            if ($name -eq 'Annex-portable.zip') {
+                [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $executable, 'Annex.exe', [IO.Compression.CompressionLevel]::Optimal) | Out-Null
             }
         }
         finally { $archive.Dispose() }

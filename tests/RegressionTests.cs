@@ -89,7 +89,7 @@ static class RegressionTests
             Assert(!called, "logoff called after failed lookup");
         });
         Check("password reset reports failure when file cannot be deleted", delegate {
-            string directory = Path.Combine(Path.GetTempPath(), "childstream-credential-test-" + Guid.NewGuid().ToString("N"));
+            string directory = Path.Combine(Path.GetTempPath(), "annex-credential-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             string path = Path.Combine(directory, "cred.bin");
             FieldInfo credentialPath = typeof(Program).GetField("credPath", BindingFlags.NonPublic | BindingFlags.Static);

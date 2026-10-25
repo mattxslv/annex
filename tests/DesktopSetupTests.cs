@@ -21,10 +21,10 @@ static class DesktopSetupTests
     }
     public static void Run(Action<string, Action> check)
     {
-        string root = Path.Combine(Path.GetTempPath(), "childstream-setup-" + Guid.NewGuid().ToString("N"));
+        string root = Path.Combine(Path.GetTempPath(), "annex-setup-" + Guid.NewGuid().ToString("N"));
         string install = Path.Combine(root, "installed & 100% ' λ");
         Directory.CreateDirectory(install);
-        File.WriteAllText(Path.Combine(install, "ChildStream.exe"), "not executed");
+        File.WriteAllText(Path.Combine(install, "Annex.exe"), "not executed");
         try {
             check("desktop setup works without a streaming host", delegate {
                 var plan = DesktopSetup.Create(install, Path.Combine(root, "startup")); var actions = new Actions();
@@ -38,8 +38,8 @@ static class DesktopSetupTests
             });
             check("helper startup uses the exact executable without a shell script", delegate {
                 var actions = new Actions(); DesktopSetup.Apply(DesktopSetup.Create(install, Path.Combine(root, "startup")), actions);
-                Assert(actions.Executable == Path.Combine(install, "ChildStream.exe") && actions.Arguments == "-agent", "path or helper arguments changed");
-                Assert(actions.Shortcut == Path.Combine(root, "startup", "ChildStream helper.lnk"), "startup target is not the native shortcut");
+                Assert(actions.Executable == Path.Combine(install, "Annex.exe") && actions.Arguments == "-agent", "path or helper arguments changed");
+                Assert(actions.Shortcut == Path.Combine(root, "startup", "Annex helper.lnk"), "startup target is not the native shortcut");
             });
             check("failed native enable never registers a usable installation", delegate {
                 var actions = new Actions { Enabled = false };
@@ -72,7 +72,7 @@ static class DesktopSetupTests
                 string hook = Path.Combine(root, "unrelated.cmd"); File.WriteAllText(hook, "@echo unrelated");
                 LegacyHelperHook.RemoveIfOwned(hook, install);
                 Assert(File.Exists(hook) && File.ReadAllText(hook) == "@echo unrelated", "unrelated startup file changed");
-                string oldCommand = "& '" + Path.Combine(install, "scripts", "childsession-autostart.ps1").Replace("'", "''") + "'";
+                string oldCommand = "& '" + Path.Combine(install, "scripts", "annex-autostart.ps1").Replace("'", "''") + "'";
                 File.WriteAllText(hook, "@powershell.exe -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(oldCommand)));
                 LegacyHelperHook.RemoveIfOwned(hook, Path.Combine(root, "other"));
                 Assert(File.Exists(hook), "another installation's hook removed");

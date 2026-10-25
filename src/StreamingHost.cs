@@ -149,7 +149,7 @@ sealed class HostController
             }
         }
         catch (Exception ex) { return new HostSnapshot(HostState.Unknown, "Cannot inspect the host process: " + ex.Message, port); }
-        if (unknown) return new HostSnapshot(HostState.Unknown, "A child host may already be running, but its process or configuration could not be verified. Another will not be started. Restart that host through ChildStream to identify its settings.", 0);
+        if (unknown) return new HostSnapshot(HostState.Unknown, "A child host may already be running, but its process or configuration could not be verified. Another will not be started. Restart that host through Annex to identify its settings.", 0);
         if (starting) return new HostSnapshot(HostState.Starting, "Starting Sunshine. Approve Windows elevation inside the child desktop if asked.", port);
         if (lastError != null) return new HostSnapshot(HostState.Error, lastError, port);
         return new HostSnapshot(HostState.Stopped, "Sunshine is off in the child desktop. Start it to make this desktop available to your client.", port);

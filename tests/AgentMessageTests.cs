@@ -31,7 +31,7 @@ static class AgentMessageTests
             gate.Select("second"); Assert(!gate.Accepts(token, 7) && !confirmation.CanProceed(7), "selection retained old approval");
         });
         check("helper distinguishes a missing host and refuses stale selection or replacement", delegate {
-            string root = Path.Combine(Path.GetTempPath(), "childstream-agent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            string root = Path.Combine(Path.GetTempPath(), "annex-agent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
             try {
                 var source = new Source(); int launches = 0;
                 var service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { launches++; throw new IOException("fixture"); }, () => true);
@@ -46,14 +46,14 @@ static class AgentMessageTests
             } finally { Directory.Delete(root, true); }
         });
         check("helper launch boundary refuses a non-child context", delegate {
-            string root = Path.Combine(Path.GetTempPath(), "childstream-agent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            string root = Path.Combine(Path.GetTempPath(), "annex-agent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
             try { string exe = Path.Combine(root, "sunshine.exe"); File.WriteAllText(exe, "fixture"); var source = new Source { Candidate = new HostCandidate(exe, HostKind.Sunshine, "registry") }; int launches = 0;
                 var service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { launches++; throw new Exception("must not launch"); }, () => false);
                 var status = service.Handle(new AgentRequest { Command = "STATUS" }); var result = service.Handle(new AgentRequest { Command = "START_HOST", SelectionId = status.SelectionId }); Assert(result.Status.State == HostState.Unavailable && launches == 0, "non-child start authorized");
             } finally { Directory.Delete(root, true); }
         });
         check("edited child profile expires the previous host startup approval", delegate {
-            string root = Path.Combine(Path.GetTempPath(), "childstream-review-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            string root = Path.Combine(Path.GetTempPath(), "annex-review-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
             try {
                 string exe = Path.Combine(root, "sunshine.exe"); File.WriteAllText(exe, "fixture"); var source = new Source { Candidate = new HostCandidate(exe, HostKind.Sunshine, "registry") }; int starts = 0;
                 var service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { Interlocked.Increment(ref starts); throw new IOException("fixture launch"); }, () => true);
@@ -64,7 +64,7 @@ static class AgentMessageTests
             } finally { Directory.Delete(root, true); }
         });
         check("pending host launch survives config refresh without a second dispatch", delegate {
-            string root = Path.Combine(Path.GetTempPath(), "childstream-review-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            string root = Path.Combine(Path.GetTempPath(), "annex-review-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
             using (var entered = new ManualResetEvent(false)) using (var release = new ManualResetEvent(false)) {
                 AgentService service = null;
                 try {

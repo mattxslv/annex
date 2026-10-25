@@ -30,7 +30,7 @@ sealed class DesktopSetupResult
 
 static class InstallationIdentity
 {
-    public static string RecordPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChildStream", "installation.txt"); } }
+    public static string RecordPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Annex", "installation.txt"); } }
     public static string Normalize(string root)
     {
         if (string.IsNullOrWhiteSpace(root) || !Path.IsPathRooted(root)) throw new IOException("Choose an absolute installation folder.");
@@ -50,13 +50,13 @@ static class InstallationIdentity
         try {
             var file = new FileInfo(path); if (!file.Exists || file.Length > 32768) return null;
             string root = Normalize(File.ReadAllText(path, Encoding.UTF8).Trim());
-            return File.Exists(Path.Combine(root, "ChildStream.exe")) ? root : null;
+            return File.Exists(Path.Combine(root, "Annex.exe")) ? root : null;
         } catch (Exception) { return null; }
     }
     public static void Save(string path, string root)
     {
         root = Normalize(root);
-        if (!File.Exists(Path.Combine(root, "ChildStream.exe"))) throw new IOException("ChildStream.exe is missing from the installation folder.");
+        if (!File.Exists(Path.Combine(root, "Annex.exe"))) throw new IOException("Annex.exe is missing from the installation folder.");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
         File.WriteAllText(path, root, new UTF8Encoding(false));
     }
@@ -67,10 +67,10 @@ static class DesktopSetup
     public static DesktopSetupPlan Create(string installRoot, string startupDirectory)
     {
         string root = InstallationIdentity.Normalize(installRoot);
-        string executable = Path.Combine(root, "ChildStream.exe");
-        if (!File.Exists(executable)) throw new IOException("ChildStream.exe is missing. Keep the executable in its installation folder.");
+        string executable = Path.Combine(root, "Annex.exe");
+        if (!File.Exists(executable)) throw new IOException("Annex.exe is missing. Keep the executable in its installation folder.");
         if (string.IsNullOrWhiteSpace(startupDirectory) || !Path.IsPathRooted(startupDirectory)) throw new IOException("Windows could not identify your Startup folder.");
-        return new DesktopSetupPlan { InstallRoot = root, Executable = executable, StartupShortcut = Path.Combine(Path.GetFullPath(startupDirectory), "ChildStream helper.lnk") };
+        return new DesktopSetupPlan { InstallRoot = root, Executable = executable, StartupShortcut = Path.Combine(Path.GetFullPath(startupDirectory), "Annex helper.lnk") };
     }
     public static DesktopSetupResult Apply(DesktopSetupPlan plan, IDesktopSetupActions actions)
     {
@@ -81,7 +81,7 @@ static class DesktopSetup
             actions.WriteRegistryDword(@"HKEY_CURRENT_USER\Software\Microsoft\Terminal Server Client", "RemoteDesktop_SuppressWhenMinimized", 2);
             actions.WriteStartupShortcut(plan.StartupShortcut, plan.Executable, "-agent");
             actions.WriteInstallationRecord(plan.InstallRoot);
-            return new DesktopSetupResult(true, "Windows desktop setup is ready. Open ChildStream from this folder and start the desktop. A streaming host is optional.");
+            return new DesktopSetupResult(true, "Windows desktop setup is ready. Open Annex from this folder and start the desktop. A streaming host is optional.");
         } catch (Exception ex) { return new DesktopSetupResult(false, "Windows setup did not finish: " + ex.Message + " Some earlier settings may have changed; repair explicitly after resolving the error."); }
     }
     public static int Run(string root, string expectedUser)
@@ -89,7 +89,7 @@ static class DesktopSetup
         using (var identity = WindowsIdentity.GetCurrent()) {
             string sid = identity.User.Value;
             if (!string.IsNullOrEmpty(expectedUser) && !string.Equals(expectedUser, sid, StringComparison.Ordinal)) {
-                MessageBox.Show("Run setup as the same Windows user who runs ChildStream.", "ChildStream setup", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1;
+                MessageBox.Show("Run setup as the same Windows user who runs Annex.", "Annex setup", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1;
             }
             if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator)) {
                 try {
@@ -103,9 +103,9 @@ static class DesktopSetup
             var plan = Create(root, Environment.GetFolderPath(Environment.SpecialFolder.Startup));
             var result = Apply(plan, new NativeDesktopSetupActions());
             Program.Log("desktop setup: " + result.Message);
-            MessageBox.Show(result.Message, "ChildStream setup", MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+            MessageBox.Show(result.Message, "Annex setup", MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             return result.Success ? 0 : 1;
-        } catch (Exception ex) { Program.Log("setup failed: " + ex.Message); MessageBox.Show(ex.Message, "ChildStream setup", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
+        } catch (Exception ex) { Program.Log("setup failed: " + ex.Message); MessageBox.Show(ex.Message, "Annex setup", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
     }
 }
 
@@ -119,7 +119,7 @@ static class LegacyHelperHook
         if (!encoded.Success) return;
         string command;
         try { command = Encoding.Unicode.GetString(Convert.FromBase64String(encoded.Groups[1].Value)); } catch (FormatException) { return; }
-        string expected = "& '" + Path.Combine(root, "scripts", "childsession-autostart.ps1").Replace("'", "''") + "'";
+        string expected = "& '" + Path.Combine(root, "scripts", "annex-autostart.ps1").Replace("'", "''") + "'";
         if (string.Equals(command.Trim(), expected, StringComparison.OrdinalIgnoreCase)) File.Delete(hook);
     }
 }
@@ -136,12 +136,12 @@ sealed class NativeDesktopSetupActions : IDesktopSetupActions
             shellObject = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")); dynamic shell = shellObject;
             shortcutObject = shell.CreateShortcut(path); dynamic shortcut = shortcutObject;
             shortcut.TargetPath = executable; shortcut.Arguments = arguments; shortcut.WorkingDirectory = Path.GetDirectoryName(executable);
-            shortcut.Description = "ChildStream child desktop helper"; shortcut.Save();
+            shortcut.Description = "Annex child desktop helper"; shortcut.Save();
         } finally {
             if (shortcutObject != null && Marshal.IsComObject(shortcutObject)) Marshal.FinalReleaseComObject(shortcutObject);
             if (shellObject != null && Marshal.IsComObject(shellObject)) Marshal.FinalReleaseComObject(shellObject);
         }
-        LegacyHelperHook.RemoveIfOwned(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), "childstream-sunshine.cmd"), Path.GetDirectoryName(executable));
+        LegacyHelperHook.RemoveIfOwned(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), "annex-sunshine.cmd"), Path.GetDirectoryName(executable));
     }
     public void WriteInstallationRecord(string root) { InstallationIdentity.Save(InstallationIdentity.RecordPath, root); }
 }

@@ -11,19 +11,19 @@ jobs:
       matrix:
         shell: [powershell, pwsh]
     env:
-      CHILDSTREAM_TEST_SHELL: ${{ matrix.shell }}
+      ANNEX_TEST_SHELL: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
       - name: Build launcher
         shell: pwsh
-        run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1'
+        run: '& $env:ANNEX_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1'
       - name: Run non-destructive regression checks
         shell: pwsh
-        run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1'
+        run: '& $env:ANNEX_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1'
       - uses: actions/upload-artifact@v7
         if: matrix.shell == 'pwsh'
         with:
-          name: ChildStream-windows-x64
-          path: ChildStream.exe
+          name: Annex-windows-x64
+          path: Annex.exe
           if-no-files-found: error
           retention-days: 30

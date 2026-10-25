@@ -10,7 +10,7 @@ static class HostProfileTests
     static void Assert(bool value, string message) { if (!value) throw new Exception(message); }
     sealed class Fixture : IDisposable
     {
-        public readonly string Root = Path.Combine(Path.GetTempPath(), "childstream-profile-" + Guid.NewGuid().ToString("N"));
+        public readonly string Root = Path.Combine(Path.GetTempPath(), "annex-profile-" + Guid.NewGuid().ToString("N"));
         public HostInstallation Host;
         public Fixture() {
             string path = Path.Combine(Root, "Installed host", "sunshine.exe"); Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path, "fixture");

@@ -35,7 +35,7 @@ static class LauncherPolicy
         return ("1. On this PC's normal desktop, open " + url + " in your browser. A browser inside the child desktop is not required.\n\n" +
             "2. First time: review Sunshine's local certificate and create a Sunshine web username/password. This is separate from your Windows password.\n\n" +
             "3. On your phone or other device, add " + address + " in Moonlight. If the PC name does not resolve, use this PC's LAN IP with the same port. Select the host to display a PIN.\n\n" +
-            "4. In Sunshine on this PC, open the PIN tab and enter that PIN and a device name. Return to Moonlight and select Desktop. Keep ChildStream attached; minimize to tray while playing.").Replace("Sunshine", hostName).Replace("\n", Environment.NewLine);
+            "4. In Sunshine on this PC, open the PIN tab and enter that PIN and a device name. Return to Moonlight and select Desktop. Keep Annex attached; minimize to tray while playing.").Replace("Sunshine", hostName).Replace("\n", Environment.NewLine);
     }
 }
 

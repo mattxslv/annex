@@ -82,7 +82,7 @@ static class Program
 
     internal static string PromptPassword(string account)
     {
-        using (var d = new Form { Text = "Child Session - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false })
+        using (var d = new Form { Text = "Annex - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false })
         {
             var lbl = new Label { Text = "Enter the Windows password for " + account + "\n(stored DPAPI-encrypted, used to auto-login the child session):", Left = 12, Top = 12, Width = 400, Height = 36 };
             var tb = new TextBox { Left = 12, Top = 56, Width = 398, UseSystemPasswordChar = true };
@@ -131,12 +131,12 @@ static class Program
             string sid;
             using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent()) sid = identity.User.Value;
             bool created;
-            using (var singleton = new System.Threading.Mutex(false, "Local\\ChildStream.Launcher." + sid, out created))
+            using (var singleton = new System.Threading.Mutex(false, "Local\\Annex.Launcher." + sid, out created))
             {
-                if (!created) { MessageBox.Show("ChildStream is already running in this Windows session. Open it from its tray icon.", "ChildStream"); return 0; }
+                if (!created) { MessageBox.Show("Annex is already running in this Windows session. Open it from its tray icon.", "Annex"); return 0; }
                 using (var app = new LauncherApplication(baseDir)) return app.Run();
             }
         }
-        catch (Exception ex) { Log("startup failed: " + ex); MessageBox.Show("ChildStream could not open.\n" + ex.Message, "ChildStream", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
+        catch (Exception ex) { Log("startup failed: " + ex); MessageBox.Show("Annex could not open.\n" + ex.Message, "Annex", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
     }
 }

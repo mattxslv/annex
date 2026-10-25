@@ -7,8 +7,8 @@ $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $csc -PathType Leaf)) {
     throw 'The 64-bit .NET Framework 4.x compiler is required.'
 }
-$output = Join-Path $root 'ChildStream.exe'
-$temporary = Join-Path $root ('ChildStream-build-' + [guid]::NewGuid().ToString('N') + '.exe')
+$output = Join-Path $root 'Annex.exe'
+$temporary = Join-Path $root ('Annex-build-' + [guid]::NewGuid().ToString('N') + '.exe')
 try {
     $compilerArgs = @('/nologo', '/warnaserror', '/target:winexe', '/platform:x64', "/out:$temporary",
         '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Security.dll', '/r:Microsoft.CSharp.dll', '/r:System.Web.Extensions.dll')
@@ -20,7 +20,7 @@ try {
     & $csc @compilerArgs
     if ($LASTEXITCODE -ne 0) { throw "Launcher compilation failed (exit code $LASTEXITCODE)." }
     Move-Item -LiteralPath $temporary -Destination $output -Force
-    Write-Host 'Compiled ChildStream.exe'
+    Write-Host 'Compiled Annex.exe'
 }
 finally {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }

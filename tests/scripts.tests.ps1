@@ -14,7 +14,7 @@ function Test-Case([string]$Name, [scriptblock]$Test) {
 
 $common = Join-Path $root 'scripts\setup-common.ps1'
 if (Test-Path -LiteralPath $common) { . $common }
-$fixture = Join-Path ([IO.Path]::GetTempPath()) ('childstream-tests-' + [guid]::NewGuid().ToString('N'))
+$fixture = Join-Path ([IO.Path]::GetTempPath()) ('annex-tests-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 try {
     Test-Case 'first setup writes a usable UTF-8 Sunshine config' {
@@ -41,7 +41,7 @@ try {
             return [pscustomobject]@{ ExitCode = 5 }
         }
         $caught = $false
-        try { Enable-ChildStreamSessions -LauncherPath 'fixture.exe' }
+        try { Enable-AnnexSessions -LauncherPath 'fixture.exe' }
         catch { $caught = $_.Exception.Message -match 'exit code 5' }
         Assert-True $caught 'native enable failure was not propagated'
     }
@@ -52,7 +52,7 @@ try {
         New-Item -ItemType Directory -Path (Join-Path $copy 'scripts'), (Join-Path $copy 'src') | Out-Null
         Copy-Item -LiteralPath $build -Destination (Join-Path $copy 'scripts\build.ps1')
         Set-Content -LiteralPath (Join-Path $copy 'src\Broken.cs') -Value 'this is not valid C#;'
-        $output = Join-Path $copy 'ChildStream.exe'
+        $output = Join-Path $copy 'Annex.exe'
         [IO.File]::WriteAllText($output, 'previous working launcher')
         $caught = $false
         try { & (Join-Path $copy 'scripts\build.ps1') *> (Join-Path $fixture 'compiler-output.txt') }
@@ -63,16 +63,16 @@ try {
     Test-Case 'autostart records helper launch failure instead of success' {
         $copy = Join-Path $fixture 'autostart project'
         New-Item -ItemType Directory -Path (Join-Path $copy 'scripts'), (Join-Path $copy 'Sunshine\Sunshine') | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'scripts\childsession-autostart.ps1') -Destination (Join-Path $copy 'scripts\childsession-autostart.ps1')
+        Copy-Item -LiteralPath (Join-Path $root 'scripts\annex-autostart.ps1') -Destination (Join-Path $copy 'scripts\annex-autostart.ps1')
         Set-Content -LiteralPath (Join-Path $copy 'Sunshine\Sunshine\sunshine.exe') -Value 'never executed'
-        Set-Content -LiteralPath (Join-Path $copy 'ChildStream.exe') -Value 'never executed'
+        Set-Content -LiteralPath (Join-Path $copy 'Annex.exe') -Value 'never executed'
         # Only the native/process boundaries are replaced. The original startup script runs.
         function Start-Process {
             [CmdletBinding()]param($FilePath, $WorkingDirectory, $WindowStyle, $Verb)
             throw 'Elevation was canceled'
         }
         $caught = $false
-        try { & (Join-Path $copy 'scripts\childsession-autostart.ps1') }
+        try { & (Join-Path $copy 'scripts\annex-autostart.ps1') }
         catch { $caught = $true }
         Assert-True $caught 'startup failure was hidden'
         $log = Join-Path $copy 'autostart.log'
@@ -83,16 +83,16 @@ try {
     Test-Case 'startup launches only the idle session helper without elevation' {
         $copy = Join-Path $fixture 'helper startup'
         New-Item -ItemType Directory -Path (Join-Path $copy 'scripts'), (Join-Path $copy 'Sunshine\Sunshine') | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root 'scripts\childsession-autostart.ps1') -Destination (Join-Path $copy 'scripts\childsession-autostart.ps1')
-        Set-Content -LiteralPath (Join-Path $copy 'ChildStream.exe') -Value 'never executed'
+        Copy-Item -LiteralPath (Join-Path $root 'scripts\annex-autostart.ps1') -Destination (Join-Path $copy 'scripts\annex-autostart.ps1')
+        Set-Content -LiteralPath (Join-Path $copy 'Annex.exe') -Value 'never executed'
         Set-Content -LiteralPath (Join-Path $copy 'Sunshine\Sunshine\sunshine.exe') -Value 'never executed'
         $helperLaunches = New-Object 'Collections.Generic.List[object]'
         function Start-Process {
             [CmdletBinding()]param($FilePath, $ArgumentList, $WorkingDirectory, $WindowStyle, $Verb)
             $helperLaunches.Add([pscustomobject]@{ Path = $FilePath; Args = $ArgumentList; Verb = $Verb; Window = $WindowStyle })
         }
-        & (Join-Path $copy 'scripts\childsession-autostart.ps1')
-        Assert-True ($helperLaunches.Count -eq 1 -and $helperLaunches[0].Path -eq (Join-Path $copy 'ChildStream.exe')) 'startup launched a host instead of the helper'
+        & (Join-Path $copy 'scripts\annex-autostart.ps1')
+        Assert-True ($helperLaunches.Count -eq 1 -and $helperLaunches[0].Path -eq (Join-Path $copy 'Annex.exe')) 'startup launched a host instead of the helper'
         Assert-True ($helperLaunches[0].Args -eq '-agent') 'wrong helper arguments'
         Assert-True (-not $helperLaunches[0].Verb -and $helperLaunches[0].Window -eq 'Hidden') 'helper requested elevation or a visible window'
     }
@@ -101,7 +101,7 @@ try {
         New-Item -ItemType Directory -Path (Join-Path $copy 'scripts') | Out-Null
         Copy-Item -LiteralPath (Join-Path $root 'scripts\setup.ps1') -Destination (Join-Path $copy 'scripts\setup.ps1')
         Copy-Item -LiteralPath $common -Destination (Join-Path $copy 'scripts\setup-common.ps1')
-        Set-Content -LiteralPath (Join-Path $copy 'ChildStream.exe') -Value 'never executed'
+        Set-Content -LiteralPath (Join-Path $copy 'Annex.exe') -Value 'never executed'
         Set-Content -LiteralPath (Join-Path $copy 'scripts\build.ps1') -Value 'Write-Output "fixture build"'
         $setupCalls = New-Object 'Collections.Generic.List[object]'
         function Invoke-RestMethod { throw 'setup must not download a host' }

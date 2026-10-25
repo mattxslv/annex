@@ -65,7 +65,7 @@ static class SessionAgentTests
             Assert(first == PipeIdentity.Name(root.ToUpperInvariant(), "S-1-5-21-1", 7), "path casing breaks pipe association");
         });
         check("peer validation rejects wrong path or session", delegate {
-            string path = Path.Combine(Path.GetTempPath(), "ChildStream.exe");
+            string path = Path.Combine(Path.GetTempPath(), "Annex.exe");
             Assert(PeerIdentity.IsServer(path, 7, path, 7), "valid helper refused");
             Assert(!PeerIdentity.IsServer(path, 1, path, 7), "console helper accepted");
             Assert(!PeerIdentity.IsServer(path + ".evil", 7, path, 7), "wrong executable accepted");
@@ -97,7 +97,7 @@ static class SessionAgentTests
             }
         });
         check("real local pipe carries a bounded request and reply", delegate {
-            string name = "ChildStream.Test." + Guid.NewGuid().ToString("N");
+            string name = "Annex.Test." + Guid.NewGuid().ToString("N");
             using (var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous)) {
                 Task peer = Task.Factory.StartNew(delegate {
                     server.WaitForConnection();
@@ -116,7 +116,7 @@ static class SessionAgentTests
             }
         });
         check("unresponsive local pipe read times out", delegate {
-            string name = "ChildStream.Test." + Guid.NewGuid().ToString("N");
+            string name = "Annex.Test." + Guid.NewGuid().ToString("N");
             using (var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous)) {
                 var connected = server.BeginWaitForConnection(null, null);
                 using (var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous)) {
@@ -128,7 +128,7 @@ static class SessionAgentTests
             }
         });
         check("unavailable helper connect times out", delegate {
-            using (var client = new NamedPipeClientStream(".", "ChildStream.Absent." + Guid.NewGuid().ToString("N"), PipeDirection.InOut, PipeOptions.Asynchronous)) {
+            using (var client = new NamedPipeClientStream(".", "Annex.Absent." + Guid.NewGuid().ToString("N"), PipeDirection.InOut, PipeOptions.Asynchronous)) {
                 var clock = Stopwatch.StartNew(); bool timedOut = false;
                 try { client.Connect(100); } catch (TimeoutException) { timedOut = true; }
                 Assert(timedOut && clock.ElapsedMilliseconds < 5000, "absent helper connection hung");

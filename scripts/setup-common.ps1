@@ -10,7 +10,7 @@ function Initialize-SunshineConfiguration {
     [IO.File]::WriteAllText($Path, $config, (New-Object Text.UTF8Encoding($false)))
 }
 
-function Enable-ChildStreamSessions {
+function Enable-AnnexSessions {
     param([Parameter(Mandatory)][string]$LauncherPath)
     # PowerShell does not reliably wait for a directly invoked GUI executable.
     $process = Start-Process -FilePath $LauncherPath -ArgumentList '-enable' -Wait -PassThru -WindowStyle Hidden

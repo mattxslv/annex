@@ -20,7 +20,7 @@ static class PipeIdentity
     {
         string normalized = Path.GetFullPath(root).TrimEnd('\\', '/').ToUpperInvariant();
         using (var hash = SHA256.Create())
-            return "ChildStream." + sid + "." + session.ToString(CultureInfo.InvariantCulture) + "." + BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(normalized))).Replace("-", "").Substring(0, 20);
+            return "Annex." + sid + "." + session.ToString(CultureInfo.InvariantCulture) + "." + BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(normalized))).Replace("-", "").Substring(0, 20);
     }
 }
 
@@ -203,7 +203,7 @@ sealed class AgentClient
                 return AgentCodec.DecodeReply(PipeProtocol.ReadText(pipe, 2500));
             }
         }
-        catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper upgrade/repair required. Restart this folder's ChildStream.exe -agent inside the child desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
+        catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper upgrade/repair required. Restart this folder's Annex.exe -agent inside the child desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
         catch (Exception ex) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the child desktop. " + ex.Message, 0) }; }
     }
 }

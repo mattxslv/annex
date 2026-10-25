@@ -1,7 +1,7 @@
-# ChildStream
+# Annex
 
 Use a second Windows desktop while keeping the physical desktop available.
-ChildStream attaches a native viewer to a Windows child session. Streaming is
+Annex attaches a native viewer to a Windows child session. Streaming is
 optional: install Sunshine or Apollo, then confirm startup of a separate host
 inside the child. No streaming protocol or client modifications are involved.
 
@@ -11,7 +11,7 @@ cases](docs/compatibility.md).
 
 ## Run the supplied EXE
 
-1. Put **ChildStream.exe** in a permanent, writable folder owned by your Windows
+1. Put **Annex.exe** in a permanent, writable folder owned by your Windows
    user. For an update, replace the EXE in the existing installation folder and
    preserve its runtime files.
 2. Open it. Choose **Setup / repair** at the bottom right if Windows desktop setup
@@ -47,11 +47,11 @@ choose a free complete TCP/UDP port family starting at 48989. Existing managed
 `Sunshine\Sunshine\config\sunshine.conf` and pairing bytes are preserved. The main
 host's credentials, configuration and preparation commands are not imported.
 
-The main host can stay running. ChildStream never starts/stops its service, kills
+The main host can stay running. Annex never starts/stops its service, kills
 another port listener or installs a display/controller driver. Concurrent capture
 and encoding still depend on the host build/GPU. A manually launched child host
 whose configuration cannot be verified stays **Status unknown**, with no guessed
-pairing address. Restart it through ChildStream yourself to identify its settings.
+pairing address. Restart it through Annex yourself to identify its settings.
 
 VibePollo is detected, but independent child startup is explicitly unsupported in
 this release. Upstream discourages multiple instances; its additional shared
@@ -61,7 +61,7 @@ Apollo for the child while leaving your main host installed.
 ## Apps and keyboard
 
 Chrome/Edge opened through **Open app** use
-`%LOCALAPPDATA%\ChildStream\Chrome-Child` / `Edge-Child`. Normal profiles, browser
+`%LOCALAPPDATA%\Annex\Chrome-Child` / `Edge-Child`. Normal profiles, browser
 processes and default associations stay intact. Complete first-run/sign-in choices
 yourself. The normal browser profile cannot be opened concurrently in both sessions.
 
@@ -69,7 +69,7 @@ A Steam instance in another desktop produces a handoff message. Exit it there
 yourself before opening it here. Account licensing, launchers, anti-cheat and RDP
 restrictions remain app-specific; browsing a game EXE does not bypass them.
 Wallpaper Engine can share settings: inspect its child UI and RDP monitor mapping
-before changing display/playback rules. ChildStream does not silently change the
+before changing display/playback rules. Annex does not silently change the
 main wallpaper. This same-user child session cannot guarantee every app works.
 
 Click inside the preview to give the child keyboard focus. Remote keyboard routing
@@ -87,7 +87,7 @@ upgrade/repair and never fall back to unvalidated commands.
 
 Close this installation's viewer and idle helper before replacing its EXE. Reopen
 it, then restart its helper inside the existing child using a shortcut to
-`ChildStream.exe -agent`. Setup / repair registers that helper for future logons.
+`Annex.exe -agent`. Setup / repair registers that helper for future logons.
 Saving work, signing out the child and reopening it is an alternative, but closes
 its apps. Recovery never automatically signs out a child or closes its games.
 
@@ -101,11 +101,11 @@ percent, or 0 for no override. Invalid input falls back atomically to 1920x1080
 without a scale override. Platform/GPU limits can be stricter.
 
 Setup is not transactional and records no original registry values. To uninstall,
-remove this user's Startup `ChildStream helper.lnk` and the installation folder;
+remove this user's Startup `Annex helper.lnk` and the installation folder;
 restore changed RDP/compositor preferences only to your recorded previous values
 and only if other software does not rely on them. Older installations may also
-have a common Startup `childstream-sunshine.cmd`, Desktop shortcut and firewall
-rule `ChildStream Sunshine`. New setup removes only its own recognized old hook.
+have a common Startup `annex-sunshine.cmd`, Desktop shortcut and firewall
+rule `Annex Sunshine`. New setup removes only its own recognized old hook.
 
 ## Build and checks
 
@@ -118,7 +118,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
 
 No SDK, NuGet packages, downloads or administrator rights are required. The build
 uses `Framework64\v4.0.30319\csc.exe`, C# 5 and framework assemblies, treating
-warnings as errors. Output: **ChildStream.exe**; a failed compile preserves the old
+warnings as errors. Output: **Annex.exe**; a failed compile preserves the old
 EXE. Tests exercise real local pipes/listeners and injected Windows boundaries;
 they do not change real settings, sign out sessions, launch hosts/apps or log in.
 
@@ -126,7 +126,7 @@ CI checks both PowerShell versions and publishes the compiled EXE. Optional
 `scripts\package.ps1` remains available for explicitly requested portable/source
 bundles. Archive tests use temporary fixtures and remove them afterward.
 
-`ChildStream.exe -preview stopped` opens a labeled synthetic native preview.
+`Annex.exe -preview stopped` opens a labeled synthetic native preview.
 `-capture-preview <directory>` renders fixtures, not live RDP or actual OS DPI
 acceptance.
 

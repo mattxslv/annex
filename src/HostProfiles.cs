@@ -76,9 +76,9 @@ sealed class SunshineFamilyAdapter : IHostAdapter
     }
     public string BuildConfiguration(HostInstallation installation, string directory, int basePort) {
         HostPorts.Family(basePort);
-        if (directory.IndexOfAny(new[] { '#', '\r', '\n', '"' }) >= 0) throw new NotSupportedException("The child-host folder contains characters that the host configuration cannot represent. Move ChildStream to a folder without # or quotes.");
+        if (directory.IndexOfAny(new[] { '#', '\r', '\n', '"' }) >= 0) throw new NotSupportedException("The child-host folder contains characters that the host configuration cannot represent. Move Annex to a folder without # or quotes.");
         var config = new StringBuilder();
-        config.AppendLine("# ChildStream child desktop. Independent from the main host.");
+        config.AppendLine("# Annex child desktop. Independent from the main host.");
         config.AppendLine("sunshine_name = " + Environment.MachineName + " Child Desktop");
         config.AppendLine("port = " + basePort.ToString(CultureInfo.InvariantCulture));
         config.AppendLine("capture = wgc"); config.AppendLine("dd_configuration_option = disabled");
@@ -96,7 +96,7 @@ sealed class ChildHostProfile
 {
     public readonly HostInstallation Installation; public readonly string ConfigPath, DataDirectory, Identity; public readonly int BasePort;
     public readonly string[] Arguments;
-    public string ReceiptPath { get { return Path.Combine(DataDirectory, "childstream-launch.txt"); } }
+    public string ReceiptPath { get { return Path.Combine(DataDirectory, "annex-launch.txt"); } }
     public ChildHostProfile(HostInstallation installation, string config, string directory, int port) {
         Installation = installation; ConfigPath = config; DataDirectory = directory; BasePort = port; Arguments = new[] { config }; Identity = CurrentIdentity();
     }

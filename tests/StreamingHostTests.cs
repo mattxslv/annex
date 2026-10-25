@@ -13,7 +13,7 @@ static class StreamingHostTests
 
     sealed class Fixture : IDisposable
     {
-        public readonly string Root = Path.Combine(Path.GetTempPath(), "childstream-host-" + Guid.NewGuid().ToString("N"));
+        public readonly string Root = Path.Combine(Path.GetTempPath(), "annex-host-" + Guid.NewGuid().ToString("N"));
         public readonly HostConfiguration Config;
         public HostProcess[] Processes = new HostProcess[0];
         public int Starts;

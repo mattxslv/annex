@@ -17,4 +17,4 @@ Sunshine/
 /ChildSessionLauncher*.cs
 /DuoPOCLauncher.cs
 /uac-retry.ps1
-/childsession-autostart.ps1
+/annex-autostart.ps1

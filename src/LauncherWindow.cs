@@ -31,7 +31,7 @@ sealed class LauncherWindow : Form
     {
         Preview = preview;
         hasSelection = preview; hostName = preview ? "Sunshine" : "host";
-        Text = preview ? "ChildStream - Preview" : "ChildStream";
+        Text = preview ? "Annex - Preview" : "Annex";
         AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Segoe UI", 9.5f); ForeColor = ink;
         BackColor = SystemInformation.HighContrast ? SystemColors.Window : Color.FromArgb(239, 243, 248);
@@ -50,7 +50,7 @@ sealed class LauncherWindow : Form
         rail.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         scroll.Controls.Add(rail); layout.Controls.Add(scroll, 0, 0);
         Action<Control> add = control => { int row = rail.RowCount++; rail.RowStyles.Add(new RowStyle(SizeType.AutoSize)); rail.Controls.Add(control, 0, row); };
-        add(Label("ChildStream", 21, FontStyle.Bold, ink, 0, 22));
+        add(Label("Annex", 21, FontStyle.Bold, ink, 0, 22));
         add(Label("Second desktop", 10, FontStyle.Bold, muted, 0, 5));
         sessionTitle = Label("Not connected", 14, FontStyle.Bold, ink, 0, 6); add(sessionTitle);
         sessionDetail = Label("Start a separate desktop for your stream. Keep this viewer attached while playing.", 9.5f, FontStyle.Regular, muted, 0, 12); add(sessionDetail);

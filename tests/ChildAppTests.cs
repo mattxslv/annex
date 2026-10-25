@@ -16,13 +16,13 @@ static class ChildAppTests
             try { Assert(memory != IntPtr.Zero && count == expected.Length + 1, "wrong argument count"); for (int i = 0; i < expected.Length; i++) Assert(Marshal.PtrToStringUni(Marshal.ReadIntPtr(memory, (i + 1) * IntPtr.Size)) == expected[i], "argument changed: " + i); }
             finally { if (memory != IntPtr.Zero) LocalFree(memory); }
         });
-        string root = Path.Combine(Path.GetTempPath(), "childstream-apps-" + Guid.NewGuid().ToString("N"));
+        string root = Path.Combine(Path.GetTempPath(), "annex-apps-" + Guid.NewGuid().ToString("N"));
         check("child browsers use stable independent profiles without importing normal data", delegate {
             Directory.CreateDirectory(root);
             try { foreach (ChildAppKind kind in new[] { ChildAppKind.Chrome, ChildAppKind.Edge }) {
                 string exe = Path.Combine(root, kind + ".exe"); File.WriteAllText(exe, "fixture"); var app = new ChildApp(exe, kind);
                 var first = ChildAppLauncher.Build(app, root); var second = ChildAppLauncher.Build(app, root);
-                Assert(first.Arguments.SequenceEqual(second.Arguments) && first.Arguments.Length == 1 && first.Arguments[0] == "--user-data-dir=" + Path.Combine(root, "ChildStream", kind + "-Child"), "wrong or unstable child profile");
+                Assert(first.Arguments.SequenceEqual(second.Arguments) && first.Arguments.Length == 1 && first.Arguments[0] == "--user-data-dir=" + Path.Combine(root, "Annex", kind + "-Child"), "wrong or unstable child profile");
                 Assert(!Directory.Exists(Path.Combine(root, "Google")) && !first.Arguments.Any(a => a.Contains("no-sandbox")), "normal browser data or sandbox changed");
             } } finally { Directory.Delete(root, true); }
         });

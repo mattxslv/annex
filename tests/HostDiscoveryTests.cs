@@ -21,7 +21,7 @@ static class HostDiscoveryTests
     }
     public static void Run(Action<string, Action> check)
     {
-        string root = Path.Combine(Path.GetTempPath(), "childstream-discovery-" + Guid.NewGuid().ToString("N"));
+        string root = Path.Combine(Path.GetTempPath(), "annex-discovery-" + Guid.NewGuid().ToString("N"));
         check("no streaming host is a valid empty discovery result", delegate {
             var result = HostDiscovery.Find(root, new Source());
             Assert(result.Installations.Length == 0 && result.Diagnostics.Length == 0, "missing host became an error");

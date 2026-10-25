@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-$output = Join-Path ([IO.Path]::GetTempPath()) ('childstream-checks-' + [guid]::NewGuid().ToString('N') + '.exe')
+$output = Join-Path ([IO.Path]::GetTempPath()) ('annex-checks-' + [guid]::NewGuid().ToString('N') + '.exe')
 $errors = @()
 Get-ChildItem -LiteralPath (Join-Path $root 'scripts'), (Join-Path $root 'tests') -Filter '*.ps1' | ForEach-Object {
     $tokens = $null

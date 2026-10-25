@@ -33,12 +33,12 @@ sealed class LauncherApplication : IDisposable
         Icon icon = SystemIcons.Application;
         try { icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         window.Icon = icon;
-        tray = new NotifyIcon { Icon = icon, Visible = true, Text = "ChildStream" };
-        menu.Items.Add("Show ChildStream", null, delegate { Show(); });
+        tray = new NotifyIcon { Icon = icon, Visible = true, Text = "Annex" };
+        menu.Items.Add("Show Annex", null, delegate { Show(); });
         menu.Items.Add("Reconnect", null, delegate { Reconnect(); });
         menu.Items.Add("Forget saved password", null, delegate {
             bool cleared = Program.ClearPassword();
-            tray.ShowBalloonTip(2000, "ChildStream", cleared ? "Saved password removed. It will be requested next time you launch." : "Could not remove cred.bin. Check its file permissions and launcher.log.", cleared ? ToolTipIcon.Info : ToolTipIcon.Error);
+            tray.ShowBalloonTip(2000, "Annex", cleared ? "Saved password removed. It will be requested next time you launch." : "Could not remove cred.bin. Check its file permissions and launcher.log.", cleared ? ToolTipIcon.Info : ToolTipIcon.Error);
         });
         menu.Items.Add("End session (closes games)", null, delegate { EndSession(); });
         menu.Items.Add("Exit viewer", null, delegate { window.Close(); });
@@ -64,7 +64,7 @@ sealed class LauncherApplication : IDisposable
         window.MinimizeRequested += delegate { window.WindowState = FormWindowState.Minimized; };
         window.Resize += delegate {
             if (window.WindowState != FormWindowState.Minimized) return;
-            window.Hide(); tray.ShowBalloonTip(1500, "ChildStream", "Still attached. Double-click the tray icon to restore the viewer.", ToolTipIcon.Info);
+            window.Hide(); tray.ShowBalloonTip(1500, "Annex", "Still attached. Double-click the tray icon to restore the viewer.", ToolTipIcon.Info);
         };
         window.FormClosing += delegate { ending = true; wantReconnect = false; requests.Close(); timer.Stop(); tray.Visible = false; };
         window.Shown += delegate { DiscoverBeforeConnect(); };
@@ -264,7 +264,7 @@ sealed class LauncherApplication : IDisposable
         }
         catch (Exception ex) {
             ending = false; wantReconnect = previousReconnect; window.SetEnding(false); Program.Log("signout failed: " + ex.Message);
-            MessageBox.Show(window, "Could not sign out the child desktop.\n" + ex.Message, "ChildStream", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(window, "Could not sign out the child desktop.\n" + ex.Message, "Annex", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
     public void Dispose() { requests.Close(); timer.Dispose(); tray.Dispose(); menu.Dispose(); window.Dispose(); }

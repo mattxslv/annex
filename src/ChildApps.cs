@@ -81,7 +81,7 @@ static class ChildAppLauncher
         if (new ChildApp(app.ExecutablePath, app.Kind).Id != app.Id) throw new IOException("The selected app changed. Refresh and choose it again.");
         string[] arguments = new string[0];
         if (app.Kind == ChildAppKind.Chrome || app.Kind == ChildAppKind.Edge) {
-            string profile = Path.Combine(Path.GetFullPath(localAppData), "ChildStream", app.Kind + "-Child"); Directory.CreateDirectory(profile); arguments = new[] { "--user-data-dir=" + profile };
+            string profile = Path.Combine(Path.GetFullPath(localAppData), "Annex", app.Kind + "-Child"); Directory.CreateDirectory(profile); arguments = new[] { "--user-data-dir=" + profile };
         }
         return new AppLaunchSpec(app.ExecutablePath, arguments, Path.GetDirectoryName(app.ExecutablePath), app.Kind);
     }

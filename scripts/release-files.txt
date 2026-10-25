@@ -10,12 +10,12 @@ docs/pairing.md
 scripts/build.ps1
 scripts/setup.ps1
 scripts/setup-common.ps1
-scripts/childsession-autostart.ps1
+scripts/annex-autostart.ps1
 scripts/test.ps1
 scripts/package.ps1
 scripts/release-files.txt
-src/ChildStream.cs
-src/ChildStream.Core.cs
+src/Annex.cs
+src/Annex.Core.cs
 src/DesktopSetup.cs
 src/HostDiscovery.cs
 src/HostProfiles.cs

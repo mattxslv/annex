@@ -5,6 +5,13 @@
 cred.bin
 monitors.csv
 sunshine-lite.zip
+display.cfg
+
+# third-party tools downloaded by setup.ps1
+tools/
+
+# per-machine autostart additions (see scripts/annex-autostart.ps1)
+autostart.local.ps1
 
 # local Sunshine install (downloaded by setup.ps1)
 Sunshine/

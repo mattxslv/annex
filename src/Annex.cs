@@ -55,8 +55,8 @@ static class Program
 
     static string PromptPassword(string account)
     {
-        var d = new Form { Text = "Child Session - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false };
-        var lbl = new Label { Text = "Enter the Windows password for " + account + "\n(stored DPAPI-encrypted, used to auto-login the child session):", Left = 12, Top = 12, Width = 400, Height = 36 };
+        var d = new Form { Text = "Annex - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false };
+        var lbl = new Label { Text = "Enter the Windows password for " + account + "\n(stored DPAPI-encrypted, used to sign in to the Annex desktop):", Left = 12, Top = 12, Width = 400, Height = 36 };
         var tb = new TextBox { Left = 12, Top = 56, Width = 398, UseSystemPasswordChar = true };
         var ok = new Button { Text = "Save", Left = 246, Top = 92, Width = 80, DialogResult = DialogResult.OK };
         var cancel = new Button { Text = "Cancel", Left = 332, Top = 92, Width = 80, DialogResult = DialogResult.Cancel };
@@ -91,7 +91,7 @@ static class Program
         Log("startup: child sessions enabled = " + en);
         if (!en)
         {
-            MessageBox.Show("Child sessions are not enabled.\nRun once from an elevated prompt:  ChildStream.exe -enable", "ChildStream");
+            MessageBox.Show("Child sessions are not enabled.\nRun once from an elevated prompt:  Annex.exe -enable", "Annex");
             return 1;
         }
 
@@ -107,19 +107,19 @@ static class Program
         }
 
         bool[] endRequested = { false };
-        var f = new Form { Text = "Child Session", Width = 1360, Height = 820 };
+        var f = new Form { Text = "Annex", Width = 1360, Height = 820 };
         Icon appIcon = SystemIcons.Application;
         try { appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         f.Icon = appIcon;
-        var tray = new NotifyIcon { Icon = appIcon, Visible = true, Text = "Child Session" };
+        var tray = new NotifyIcon { Icon = appIcon, Visible = true, Text = "Annex" };
         var menu = new ContextMenuStrip();
         menu.Items.Add("Show", null, (s, e) => { f.Show(); f.WindowState = FormWindowState.Normal; f.Activate(); });
         ToolStripMenuItem reconnectItem = new ToolStripMenuItem("Reconnect now");
         menu.Items.Add(reconnectItem);
-        menu.Items.Add("Forget saved password", null, (s, e) => { try { File.Delete(credPath); } catch { } tray.ShowBalloonTip(2000, "Child Session", "Password cleared. Restart the app.", ToolTipIcon.Info); });
+        menu.Items.Add("Forget saved password", null, (s, e) => { try { File.Delete(credPath); } catch { } tray.ShowBalloonTip(2000, "Annex", "Password cleared. Restart the app.", ToolTipIcon.Info); });
         menu.Items.Add("End session (sign out, closes games)", null, (s, e) =>
         {
-            if (MessageBox.Show("Sign out the child session? All apps running in it will close.", "Child Session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+            if (MessageBox.Show("Sign out the Annex desktop? All apps running in it will close.", "Annex", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
             endRequested[0] = true;
             try
             {
@@ -149,7 +149,7 @@ static class Program
         tray.ContextMenuStrip = menu;
         tray.DoubleClick += (s, e) => { f.Show(); f.WindowState = FormWindowState.Normal; f.Activate(); };
 
-        f.Resize += (s, e) => { if (f.WindowState == FormWindowState.Minimized) { f.Hide(); tray.ShowBalloonTip(1500, "Child Session", "Still running - session stays alive. Double-click to restore.", ToolTipIcon.Info); } };
+        f.Resize += (s, e) => { if (f.WindowState == FormWindowState.Minimized) { f.Hide(); tray.ShowBalloonTip(1500, "Annex", "Still running - session stays alive. Double-click to restore.", ToolTipIcon.Info); } };
         f.Show();
 
         var rdp = new RdpBox { Dock = DockStyle.Fill };
@@ -214,7 +214,7 @@ static class Program
             try
             {
                 int state = (int)ocx.Connected;
-                if (state != last) { last = state; Log("state -> " + state); f.Text = state == 1 ? "Child Session - connected" : "Child Session - state " + state; }
+                if (state != last) { last = state; Log("state -> " + state); f.Text = state == 1 ? "Annex - connected" : "Annex - state " + state; }
                 if (state == 0 && wantReconnect && !endRequested[0] && (DateTime.Now - lastAttempt).TotalSeconds > 5)
                 {
                     lastAttempt = DateTime.Now;

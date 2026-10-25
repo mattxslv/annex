@@ -1,0 +1,29 @@
+name: Windows checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    env:
+      CHILDSTREAM_TEST_SHELL: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build launcher
+        shell: pwsh
+        run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1'
+      - name: Run non-destructive regression checks
+        shell: pwsh
+        run: '& $env:CHILDSTREAM_TEST_SHELL -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1'
+      - uses: actions/upload-artifact@v7
+        if: matrix.shell == 'pwsh'
+        with:
+          name: ChildStream-windows-x64
+          path: ChildStream.exe
+          if-no-files-found: error
+          retention-days: 30

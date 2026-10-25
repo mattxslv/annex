@@ -1,92 +1,137 @@
-# Annex
+# ChildStream
 
-**Stream games from a second Windows desktop while you keep using your PC — free, open, no license unlocks.**
+Use a second Windows desktop while keeping the physical desktop available.
+ChildStream attaches a native viewer to a Windows child session. Streaming is
+optional: install Sunshine or Apollo, then confirm startup of a separate host
+inside the child. No streaming protocol or client modifications are involved.
 
-Annex is a proof of concept that replicates the core idea of multiseat streaming tools (like [Duo](https://github.com/DuoStream/Duo)) using only documented Windows features:
+This is a proof of concept. A running host/app is not proof of capture, pairing,
+audio, controller support or game compatibility. See [actual evidence and pending
+cases](docs/compatibility.md).
 
-- A **child session** — a second, fully independent Windows logon session created via the Win32 `WTSEnableChildSessions` API and the RDP ActiveX control's `ConnectToChildSession` property
-- A portable **[Sunshine](https://github.com/LizardByte/Sunshine)** instance running *inside* that session on its own ports
-- Any **Moonlight** client (Artemis on Android works great) connecting to it
+## Run the supplied EXE
 
-Result: your phone/tablet/TV streams a game from the second desktop at up to ~120 fps, while the physical desktop stays fully usable at its native refresh rate (verified 143 Hz on the host while streaming 2800×1272 @ 120 fps).
+1. Put **ChildStream.exe** in a permanent, writable folder owned by your Windows
+   user. For an update, replace the EXE in the existing installation folder and
+   preserve its runtime files.
+2. Open it. Choose **Setup / repair** at the bottom right if Windows desktop setup
+   is needed. Approve elevation yourself. Setup enables child sessions, sets the
+   RDP/compositor preferences and registers a per-user Startup shortcut directly
+   to this EXE's idle helper. It downloads no streaming host.
+3. Choose **Start desktop**. Enter your Windows account password if asked; a
+   Windows Hello PIN is not that password. Credentials use user-scoped DPAPI in
+   `cred.bin`; the tray menu can forget them.
+4. **No host detected** does not prevent using the desktop. **Install a host...**
+   opens vendor release pages. You can install software inside the child too.
+5. After attaching, choose the host if several are found. **Browse...** handles
+   portable/nonstandard locations; **Refresh** detects later installations.
+   Confirm **Start [host]** to start it inside the child. Handle UAC there yourself.
+   Declining leaves the desktop usable and the explicit Start action available.
+6. **Open app** opens detected Chrome, Edge, Steam or Wallpaper Engine in the child.
+   **Browse app...** registers another installed EXE. Browsers get a persistent
+   child-only profile. Ordinary shared desktop shortcuts are not changed.
+7. Follow the [PIN/pairing instructions](docs/pairing.md). Keep the viewer attached;
+   **Minimize to tray** keeps it attached while freeing the main desktop.
 
-```
-┌────────────────────────── Your PC ──────────────────────────┐
-│  Console session (you)          Child session (streaming)   │
-│  ├─ your apps, 144 Hz           ├─ games                    │
-│  └─ physical monitors           ├─ Sunshine (port 48989)    │
-│                                 └─ RDP display @ ~120 fps   │
-│  Annex.exe ── RDP loopback viewer ──> child session         │
-└─────────────────────────────────────────────────────────────┘
-                                  │
-                        Moonlight / Artemis client
-```
+Requirements: x64 Windows with child-session support (original proof of concept:
+Windows 11 Pro), .NET Framework 4.x, built-in RDP ActiveX, a compatible encoder and
+a password-capable Windows account. Domain/Entra/passwordless flows remain
+unvalidated. Use a private writable install folder; runtime files live beside the
+EXE. Controller drivers are a separate vendor installation, never automatic setup.
 
-## Requirements
+## Independent host settings
 
-- Windows 10/11 **Pro** (tested on Windows 11 Pro 25H2)
-- A GPU with a hardware encoder (NVENC / AMF / QSV)
-- .NET Framework 4.x (preinstalled on Windows)
-- A password-capable Windows account (child session logon uses `MACHINE\user` + password; if you use a Microsoft account with Windows Hello only, allow password sign-in)
+Sunshine/Apollo adapters use dedicated child configuration, state, credentials,
+certificates, app list and log. New profiles live in `Hosts` beside the EXE and
+choose a free complete TCP/UDP port family starting at 48989. Existing managed
+`Sunshine\Sunshine\config\sunshine.conf` and pairing bytes are preserved. The main
+host's credentials, configuration and preparation commands are not imported.
 
-## Setup
+The main host can stay running. ChildStream never starts/stops its service, kills
+another port listener or installs a display/controller driver. Concurrent capture
+and encoding still depend on the host build/GPU. A manually launched child host
+whose configuration cannot be verified stays **Status unknown**, with no guessed
+pairing address. Restart it through ChildStream yourself to identify its settings.
+
+VibePollo is detected, but independent child startup is explicitly unsupported in
+this release. Upstream discourages multiple instances; its additional shared
+helper/display state needs real coexistence verification. Select Sunshine or
+Apollo for the child while leaving your main host installed.
+
+## Apps and keyboard
+
+Chrome/Edge opened through **Open app** use
+`%LOCALAPPDATA%\ChildStream\Chrome-Child` / `Edge-Child`. Normal profiles, browser
+processes and default associations stay intact. Complete first-run/sign-in choices
+yourself. The normal browser profile cannot be opened concurrently in both sessions.
+
+A Steam instance in another desktop produces a handoff message. Exit it there
+yourself before opening it here. Account licensing, launchers, anti-cheat and RDP
+restrictions remain app-specific; browsing a game EXE does not bypass them.
+Wallpaper Engine can share settings: inspect its child UI and RDP monitor mapping
+before changing display/playback rules. ChildStream does not silently change the
+main wallpaper. This same-user child session cannot guarantee every app works.
+
+Click inside the preview to give the child keyboard focus. Remote keyboard routing
+is configured before every connection; unsupported properties produce a diagnostic.
+Shortcut handling can differ between the embedded viewer and a streaming client;
+gameplay/controller input still needs client acceptance. Click the companion
+column to leave viewer focus.
+
+## Updates and recovery
+
+**Helper unavailable** differs from a missing streaming host. Open the EXE from
+the folder registered by Setup / repair. A build-output EXE in another folder
+cannot control that installation's helper. Outdated protocols require an explicit
+upgrade/repair and never fall back to unvalidated commands.
+
+Close this installation's viewer and idle helper before replacing its EXE. Reopen
+it, then restart its helper inside the existing child using a shortcut to
+`ChildStream.exe -agent`. Setup / repair registers that helper for future logons.
+Saving work, signing out the child and reopening it is an alternative, but closes
+its apps. Recovery never automatically signs out a child or closes its games.
+
+**Reconnect** attaches again. **End session...** confirms before signing out the
+exact child reported by Windows and closes its apps. Exiting only the viewer does
+not sign out, but can interrupt capture. Keep `launcher.log`/`autostart.log` private.
+
+Optional `display.cfg` beside the EXE accepts `widthxheight` or
+`widthxheightxscale`, such as `2800x1272x225`. Dimensions: 200-8192; scale: 100-500
+percent, or 0 for no override. Invalid input falls back atomically to 1920x1080
+without a scale override. Platform/GPU limits can be stricter.
+
+Setup is not transactional and records no original registry values. To uninstall,
+remove this user's Startup `ChildStream helper.lnk` and the installation folder;
+restore changed RDP/compositor preferences only to your recorded previous values
+and only if other software does not rely on them. Older installations may also
+have a common Startup `childstream-sunshine.cmd`, Desktop shortcut and firewall
+rule `ChildStream Sunshine`. New setup removes only its own recognized old hook.
+
+## Build and checks
+
+From the repository root in Windows PowerShell 5.1 or PowerShell 7:
 
 ```powershell
-# from an elevated PowerShell in the repo root
-.\scripts\setup.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
 ```
 
-The script:
-1. Compiles `Annex.exe` from source (csc, no build tools needed)
-2. Enables child sessions (`WTSEnableChildSessions`)
-3. Allows RDP connections over loopback only (child sessions are loopback RDP); the Windows Remote Desktop firewall rules are disabled so RDP stays closed to the network (`-KeepRemoteDesktop` to skip)
-4. Raises the session compositor rate (`DWMFRAMEINTERVAL = 8` → ~120 fps)
-5. Downloads portable Sunshine and configures it on base port **48989** (coexists with an existing host like Apollo/Vibepollo on 47989); an existing config is kept on re-runs
-6. Makes the Sunshine folder admin-write only, since Sunshine runs elevated (edit its config via the web UI or an elevated shell)
-7. Adds a firewall rule + startup hook that auto-starts Sunshine **only inside child sessions**
-8. Creates a desktop shortcut
-9. Routes the viewer's audio to the silent Steam Streaming Speakers so game audio plays only on the client (uses NirSoft svcl)
+No SDK, NuGet packages, downloads or administrator rights are required. The build
+uses `Framework64\v4.0.30319\csc.exe`, C# 5 and framework assemblies, treating
+warnings as errors. Output: **ChildStream.exe**; a failed compile preserves the old
+EXE. Tests exercise real local pipes/listeners and injected Windows boundaries;
+they do not change real settings, sign out sessions, launch hosts/apps or log in.
 
-Then:
-1. Launch **Annex** from the desktop
-2. Enter your Windows password once (stored DPAPI-encrypted, machine-local)
-3. Set Sunshine web UI credentials from an elevated prompt: `Sunshine\Sunshine\sunshine.exe --creds <user> <pass>`
-4. Pair Moonlight/Artemis with `<host-ip>:48989` (PIN via `https://<host-ip>:48990`)
-5. Play
+CI checks both PowerShell versions and publishes the compiled EXE. Optional
+`scripts\package.ps1` remains available for explicitly requested portable/source
+bundles. Archive tests use temporary fixtures and remove them afterward.
 
-## Usage notes
+`ChildStream.exe -preview stopped` opens a labeled synthetic native preview.
+`-capture-preview <directory>` renders fixtures, not live RDP or actual OS DPI
+acceptance. See [review scope](docs/code-review.md).
 
-- Machine-specific logon steps for the Annex desktop can go in an untracked `autostart.local.ps1` in the repo root; the startup hook runs it after starting Sunshine.
-
-- **Keep Annex running while streaming** — minimize it to the tray. The child session's display exists only while the viewer is attached; closing the app breaks capture until you reconnect (it auto-reconnects on relaunch).
-- The session itself survives viewer disconnects — games keep running.
-- To fully end the session: sign out from inside it.
-- If your Microsoft account password is rejected, log on as `MACHINE\username` (the launcher does this automatically).
-
-## Limitations (vs. commercial tools)
-
-- One child session max (Windows limitation), same user as the console session
-- Refresh limited by the RDP compositor (~60–125 fps depending on build; `DWMFRAMEINTERVAL` tweak required)
-- No per-session HDR
-- A viewer connection must stay attached (commercial tools ship a custom indirect display driver to avoid this)
-
-## Upgrading from ChildStream
-
-The project was renamed from ChildStream. Pull, then re-run `.\scripts\setup.ps1` as admin: it builds `Annex.exe`, replaces the `Child Session` shortcut, the `ChildStream Sunshine` firewall rule and the `childstream-sunshine.cmd` startup hook, and keeps your Sunshine config and pairings. Your saved password (`cred.bin`) is kept. Delete the old `ChildStream.exe` afterwards.
-
-## Uninstall
-
-- Delete the repo folder (the `Sunshine` folder needs an elevated prompt), the desktop shortcut, and `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\annex-sunshine.cmd`
-- Remove the firewall rule `Annex Sunshine`
-- Optional: remove `DWMFRAMEINTERVAL`, set `fDenyTSConnections = 1`, and disable child sessions
-
-## Credits
-
-- [DuoStream/Duo](https://github.com/DuoStream/Duo) for proving the concept
-- [LizardByte/Sunshine](https://github.com/LizardByte/Sunshine) for the streaming host
-- [Artemis / moonlight-android](https://github.com/ClassicOldSong/moonlight-android) as the client
-- Microsoft's documented [Child Sessions](https://learn.microsoft.com/en-us/windows/win32/termserv/child-sessions) API
-
-## Disclaimer
-
-Proof of concept, provided as-is. Built collaboratively with GitHub Copilot CLI in an afternoon. Use at your own risk.
+[MIT license](LICENSE). Thanks to [Sunshine](https://github.com/LizardByte/Sunshine),
+[Apollo](https://github.com/ClassicOldSong/Apollo),
+[VibePollo](https://github.com/Nonary/Vibepollo),
+[Duo](https://github.com/DuoStream/Duo) and Microsoft's
+[child-session API](https://learn.microsoft.com/en-us/windows/win32/termserv/child-sessions).

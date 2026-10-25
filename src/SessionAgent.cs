@@ -154,8 +154,10 @@ static class HostNative
         if (profile.CurrentIdentity() != profile.Identity) throw new IOException("The child host configuration changed. Refresh and confirm startup again.");
         if (HostPorts.Collides(profile.BasePort, HostPorts.Occupied())) throw new IOException("A child-host TCP or UDP port is already in use. No existing listener was stopped. Close the conflicting app or change the child configuration.");
         HostLaunchSpec spec = HostProfiles.Adapter(profile.Installation).BuildLaunch(profile);
+        bool elevate = ElevationPolicy.CanElevate(spec.Executable, profile.ConfigPath);
+        ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
         var start = new ProcessStartInfo(spec.Executable, NativeArguments.Join(spec.Arguments)) {
-            UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = spec.WorkingDirectory
+            UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = spec.WorkingDirectory
         };
         using (var process = Process.Start(start)) {
             if (process == null) throw new IOException("Windows did not return a child host process.");
@@ -167,8 +169,10 @@ static class HostNative
     }
     public static void StartHost(HostConfiguration config)
     {
+        bool elevate = ElevationPolicy.CanElevate(config.ExecutablePath, config.ConfigPath);
+        ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
         var start = new ProcessStartInfo(config.ExecutablePath, "\"" + config.ConfigPath + "\"") {
-            UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = Path.GetDirectoryName(config.ExecutablePath)
+            UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = Path.GetDirectoryName(config.ExecutablePath)
         };
         using (var process = Process.Start(start)) {
             if (process == null) throw new IOException("Windows did not return a Sunshine process.");

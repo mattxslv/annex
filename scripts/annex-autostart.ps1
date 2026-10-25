@@ -12,3 +12,9 @@ catch {
     throw
 }
 
+# Optional per-machine additions (not tracked), only inside the child desktop
+$local = Join-Path $root 'autostart.local.ps1'
+if (Test-Path -LiteralPath $local) {
+    Add-Type -Namespace Annex -Name Session -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint WTSGetActiveConsoleSessionId();'
+    if ((Get-Process -Id $PID).SessionId -ne [Annex.Session]::WTSGetActiveConsoleSessionId()) { & $local }
+}

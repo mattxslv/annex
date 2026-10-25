@@ -9,16 +9,20 @@ This is a proof of concept. A running host/app is not proof of capture, pairing,
 audio, controller support or game compatibility. See [actual evidence and pending
 cases](docs/compatibility.md).
 
-## Run the supplied EXE
+## Set up
 
-1. Put **Annex.exe** in a permanent, writable folder owned by your Windows
-   user. For an update, replace the EXE in the existing installation folder and
-   preserve its runtime files.
-2. Open it. Choose **Setup / repair** at the bottom right if Windows desktop setup
-   is needed. Approve elevation yourself. Setup enables child sessions, sets the
-   RDP/compositor preferences and registers a per-user Startup shortcut directly
-   to this EXE's idle helper. It downloads no streaming host.
-3. Choose **Start desktop**. Enter your Windows account password if asked; a
+1. Put the repository (or portable ZIP) in a permanent folder owned by your
+   Windows user. For an update, replace the files and preserve runtime files.
+2. Run `.\scripts\setup.ps1` from PowerShell and approve elevation yourself. It
+   builds **Annex.exe**, enables child sessions, sets the RDP/compositor
+   preferences, keeps RDP closed to the network (Remote Desktop firewall rules
+   disabled; `-KeepRemoteDesktop` skips this), registers the child helper as a
+   per-user Startup `annex-helper.cmd`, and adds an **Annex** desktop shortcut.
+   If a portable Sunshine is in `Sunshine\`, its folder becomes admin-write only
+   (see below). `-RouteAudio` also sends Annex's own audio to the silent Steam
+   Streaming Speakers so child sound plays only on the client. No streaming host
+   is downloaded. **Setup / repair** in the app re-applies the Windows settings.
+3. Open **Annex** and choose **Start desktop**. Enter your Windows account password if asked; a
    Windows Hello PIN is not that password. Credentials use user-scoped DPAPI in
    `cred.bin`; the tray menu can forget them.
 4. **No host detected** does not prevent using the desktop. **Install a host...**
@@ -81,13 +85,13 @@ column to leave viewer focus.
 ## Updates and recovery
 
 **Helper unavailable** differs from a missing streaming host. Open the EXE from
-the folder registered by Setup / repair. A build-output EXE in another folder
+the folder registered by setup. A build-output EXE in another folder
 cannot control that installation's helper. Outdated protocols require an explicit
 upgrade/repair and never fall back to unvalidated commands.
 
 Close this installation's viewer and idle helper before replacing its EXE. Reopen
 it, then restart its helper inside the existing child using a shortcut to
-`Annex.exe -agent`. Setup / repair registers that helper for future logons.
+`Annex.exe -agent`. `scripts\setup.ps1` registers that helper for future logons.
 Saving work, signing out the child and reopening it is an alternative, but closes
 its apps. Recovery never automatically signs out a child or closes its games.
 
@@ -100,12 +104,20 @@ Optional `display.cfg` beside the EXE accepts `widthxheight` or
 percent, or 0 for no override. Invalid input falls back atomically to 1920x1080
 without a scale override. Platform/GPU limits can be stricter.
 
+**Admin rights for the host.** Annex starts a host elevated (needed for input
+into games that run as administrator) only when your normal account cannot
+change the host's executable or config, e.g. Program Files installs or the
+portable `Sunshine\` folder after setup locks it. Otherwise the host starts
+without elevation and the status says so. Edit a locked Sunshine config through
+its web UI or an elevated editor.
+
 Setup is not transactional and records no original registry values. To uninstall,
-remove this user's Startup `Annex helper.lnk` and the installation folder;
-restore changed RDP/compositor preferences only to your recorded previous values
-and only if other software does not rely on them. Older installations may also
-have a common Startup `annex-sunshine.cmd`, Desktop shortcut and firewall
-rule `Annex Sunshine`. New setup removes only its own recognized old hook.
+remove this user's Startup `annex-helper.cmd`, the **Annex** desktop shortcut,
+the firewall rule `Annex Sunshine` and the installation folder (the locked
+`Sunshine` folder needs an elevated prompt); restore changed RDP/compositor
+preferences only to your recorded previous values and only if other software
+does not rely on them. Setup removes hooks left by ChildStream and earlier Annex
+builds.
 
 ## Build and checks
 

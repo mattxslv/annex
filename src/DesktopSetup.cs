@@ -1,10 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -12,13 +10,12 @@ interface IDesktopSetupActions
 {
     bool EnableChildSessions();
     void WriteRegistryDword(string path, string name, int value);
-    void WriteStartupShortcut(string path, string executable, string arguments);
     void WriteInstallationRecord(string installRoot);
 }
 
 sealed class DesktopSetupPlan
 {
-    public string InstallRoot, Executable, StartupShortcut;
+    public string InstallRoot, Executable;
 }
 
 sealed class DesktopSetupResult
@@ -64,13 +61,12 @@ static class InstallationIdentity
 
 static class DesktopSetup
 {
-    public static DesktopSetupPlan Create(string installRoot, string startupDirectory)
+    public static DesktopSetupPlan Create(string installRoot)
     {
         string root = InstallationIdentity.Normalize(installRoot);
         string executable = Path.Combine(root, "Annex.exe");
         if (!File.Exists(executable)) throw new IOException("Annex.exe is missing. Keep the executable in its installation folder.");
-        if (string.IsNullOrWhiteSpace(startupDirectory) || !Path.IsPathRooted(startupDirectory)) throw new IOException("Windows could not identify your Startup folder.");
-        return new DesktopSetupPlan { InstallRoot = root, Executable = executable, StartupShortcut = Path.Combine(Path.GetFullPath(startupDirectory), "Annex helper.lnk") };
+        return new DesktopSetupPlan { InstallRoot = root, Executable = executable };
     }
     public static DesktopSetupResult Apply(DesktopSetupPlan plan, IDesktopSetupActions actions)
     {
@@ -79,9 +75,8 @@ static class DesktopSetup
             actions.WriteRegistryDword(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server", "fDenyTSConnections", 0);
             actions.WriteRegistryDword(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations", "DWMFRAMEINTERVAL", 8);
             actions.WriteRegistryDword(@"HKEY_CURRENT_USER\Software\Microsoft\Terminal Server Client", "RemoteDesktop_SuppressWhenMinimized", 2);
-            actions.WriteStartupShortcut(plan.StartupShortcut, plan.Executable, "-agent");
             actions.WriteInstallationRecord(plan.InstallRoot);
-            return new DesktopSetupResult(true, "Windows desktop setup is ready. Open Annex from this folder and start the desktop. A streaming host is optional.");
+            return new DesktopSetupResult(true, "Windows desktop setup is ready. If the child helper is not registered yet, run scripts\\setup.ps1 once. A streaming host is optional.");
         } catch (Exception ex) { return new DesktopSetupResult(false, "Windows setup did not finish: " + ex.Message + " Some earlier settings may have changed; repair explicitly after resolving the error."); }
     }
     public static int Run(string root, string expectedUser)
@@ -100,7 +95,7 @@ static class DesktopSetup
             }
         }
         try {
-            var plan = Create(root, Environment.GetFolderPath(Environment.SpecialFolder.Startup));
+            var plan = Create(root);
             var result = Apply(plan, new NativeDesktopSetupActions());
             Program.Log("desktop setup: " + result.Message);
             MessageBox.Show(result.Message, "Annex setup", MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
@@ -109,39 +104,9 @@ static class DesktopSetup
     }
 }
 
-static class LegacyHelperHook
-{
-    public static void RemoveIfOwned(string hook, string root)
-    {
-        if (!File.Exists(hook) || new FileInfo(hook).Length > 32768) return;
-        string text = File.ReadAllText(hook);
-        Match encoded = Regex.Match(text, @"-EncodedCommand\s+([A-Za-z0-9+/=]+)", RegexOptions.IgnoreCase);
-        if (!encoded.Success) return;
-        string command;
-        try { command = Encoding.Unicode.GetString(Convert.FromBase64String(encoded.Groups[1].Value)); } catch (FormatException) { return; }
-        string expected = "& '" + Path.Combine(root, "scripts", "annex-autostart.ps1").Replace("'", "''") + "'";
-        if (string.Equals(command.Trim(), expected, StringComparison.OrdinalIgnoreCase)) File.Delete(hook);
-    }
-}
-
 sealed class NativeDesktopSetupActions : IDesktopSetupActions
 {
     public bool EnableChildSessions() { return Program.EnableChildSessions(); }
     public void WriteRegistryDword(string path, string name, int value) { Registry.SetValue(path, name, value, RegistryValueKind.DWord); }
-    public void WriteStartupShortcut(string path, string executable, string arguments)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        object shellObject = null, shortcutObject = null;
-        try {
-            shellObject = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")); dynamic shell = shellObject;
-            shortcutObject = shell.CreateShortcut(path); dynamic shortcut = shortcutObject;
-            shortcut.TargetPath = executable; shortcut.Arguments = arguments; shortcut.WorkingDirectory = Path.GetDirectoryName(executable);
-            shortcut.Description = "Annex child desktop helper"; shortcut.Save();
-        } finally {
-            if (shortcutObject != null && Marshal.IsComObject(shortcutObject)) Marshal.FinalReleaseComObject(shortcutObject);
-            if (shellObject != null && Marshal.IsComObject(shellObject)) Marshal.FinalReleaseComObject(shellObject);
-        }
-        LegacyHelperHook.RemoveIfOwned(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), "annex-sunshine.cmd"), Path.GetDirectoryName(executable));
-    }
     public void WriteInstallationRecord(string root) { InstallationIdentity.Save(InstallationIdentity.RecordPath, root); }
 }

@@ -144,7 +144,7 @@ sealed class HostController
                 {
                     if (profile != null && (process.ConfigPath != null ? !SamePath(process.ConfigPath, profile.ConfigPath) : receipt == null || !receipt.Matches(process, profile.Identity))) { unknown = true; continue; }
                     lastError = null;
-                    return new HostSnapshot(HostState.Running, "The host is running in the child desktop. Streaming still depends on host capture and client settings.", port);
+                    return new HostSnapshot(HostState.Running, "The host is running in the child desktop. Streaming still depends on host capture and client settings." + (ElevationPolicy.LastLaunchNote ?? ""), port);
                 }
             }
         }

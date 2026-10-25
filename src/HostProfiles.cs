@@ -96,7 +96,9 @@ sealed class ChildHostProfile
 {
     public readonly HostInstallation Installation; public readonly string ConfigPath, DataDirectory, Identity; public readonly int BasePort;
     public readonly string[] Arguments;
-    public string ReceiptPath { get { return Path.Combine(DataDirectory, "annex-launch.txt"); } }
+    // Kept outside the host folder, which setup may make admin-write only.
+    public static string ReceiptRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Annex");
+    public string ReceiptPath { get { return Path.Combine(ReceiptRoot, "launch-" + HostProfiles.Digest(DataDirectory.ToUpperInvariant()).Substring(0, 16) + ".txt"); } }
     public ChildHostProfile(HostInstallation installation, string config, string directory, int port) {
         Installation = installation; ConfigPath = config; DataDirectory = directory; BasePort = port; Arguments = new[] { config }; Identity = CurrentIdentity();
     }
@@ -119,9 +121,8 @@ static class HostProfiles
         Directory.CreateDirectory(directory);
         int port;
         if (File.Exists(config)) {
+            // Read-only is enough: the host itself writes its state, and setup may lock this folder to admins.
             port = HostConfiguration.ParsePort(ReadConfiguration(config)); HostPorts.Family(port);
-            // Check write access without changing a byte of existing user settings or pairing state.
-            using (var writable = new FileStream(config, FileMode.Open, FileAccess.ReadWrite, FileShare.Read)) { }
         } else {
             port = HostPorts.FindAvailable(occupied, 48989, 65514);
             string content = Adapter(host).BuildConfiguration(host, directory, port);
@@ -131,8 +132,6 @@ static class HostProfiles
             string apps = Path.Combine(directory, "apps.json");
             if (!File.Exists(apps)) File.WriteAllText(apps, "{\"env\":{},\"apps\":[{\"name\":\"Desktop\",\"image-path\":\"desktop.png\"}]}", new UTF8Encoding(false));
         }
-        string probe = Path.Combine(directory, ".write-" + Guid.NewGuid().ToString("N"));
-        using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }
         return new ChildHostProfile(host, config, directory, port);
     }
 }
@@ -142,7 +141,7 @@ sealed class HostLaunchReceipt
     public readonly int ProcessId; public readonly long StartTimeUtcTicks; public readonly string ProfileIdentity;
     public HostLaunchReceipt(int pid, long ticks, string identity) { ProcessId = pid; StartTimeUtcTicks = ticks; ProfileIdentity = identity; }
     public bool Matches(HostProcess process, string identity) { return ProcessId > 0 && StartTimeUtcTicks > 0 && ProcessId == process.ProcessId && StartTimeUtcTicks == process.StartTimeUtcTicks && ProfileIdentity == identity; }
-    public void Save(string path) { File.WriteAllText(path, ProcessId.ToString(CultureInfo.InvariantCulture) + "|" + StartTimeUtcTicks.ToString(CultureInfo.InvariantCulture) + "|" + ProfileIdentity, new UTF8Encoding(false)); }
+    public void Save(string path) { Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path, ProcessId.ToString(CultureInfo.InvariantCulture) + "|" + StartTimeUtcTicks.ToString(CultureInfo.InvariantCulture) + "|" + ProfileIdentity, new UTF8Encoding(false)); }
     public static HostLaunchReceipt Load(string path) {
         try { if (new FileInfo(path).Length > 256) return null; string[] parts = File.ReadAllText(path).Split('|'); int pid; long ticks;
             if (parts.Length != 3 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out pid) || !long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out ticks) || pid <= 0 || ticks <= 0 || parts[2].Length != 64) return null;

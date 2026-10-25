@@ -21,6 +21,18 @@ static class HostProfileTests
     }
     public static void Run(Action<string, Action> check)
     {
+        ChildHostProfile.ReceiptRoot = Path.Combine(Path.GetTempPath(), "annex-receipts-" + Guid.NewGuid().ToString("N"));
+        check("hosts and configs the user can modify are never elevated", delegate {
+            string dir = Path.Combine(Path.GetTempPath(), "annex-elevation-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try {
+                string exe = Path.Combine(dir, "sunshine.exe"), conf = Path.Combine(dir, "sunshine.conf");
+                File.WriteAllText(exe, "not executed"); File.WriteAllText(conf, "port = 48989");
+                Assert(!ElevationPolicy.IsProtectedFile(exe) && !ElevationPolicy.IsProtectedFolder(dir), "user-owned files counted as protected");
+                Assert(!ElevationPolicy.CanElevate(exe, conf), "user-writable host would be elevated");
+                Assert(!ElevationPolicy.CanElevate(Path.Combine(dir, "missing.exe"), conf), "missing host would be elevated");
+            } finally { Directory.Delete(dir, true); }
+        });
         check("child profile isolates state credentials certificates apps and logs", delegate {
             using (var f = new Fixture()) {
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(f.Host.ExecutablePath), "sunshine.conf"), "global_prep_cmd = secret-main-command");

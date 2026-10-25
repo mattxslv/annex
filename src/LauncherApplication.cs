@@ -74,7 +74,7 @@ sealed class LauncherApplication : IDisposable
         setupReady = known && enabled;
         if (!setupReady) {
             window.SetSession("Setup required", known ? "Windows child sessions are not enabled yet." : "Windows could not report child-session support. Check launcher.log.", false, false);
-            window.ShowGuidance("One-time desktop setup", "Choose Setup / repair to enable the Windows child desktop and register this EXE's helper. Windows may ask for administrator approval. A streaming host is optional.");
+            window.ShowGuidance("One-time desktop setup", "Run scripts\\setup.ps1 once: it enables the Windows child desktop and registers the child helper. Setup / repair re-applies the Windows settings later. Windows may ask for administrator approval. A streaming host is optional.");
             window.SetHost(new HostSnapshot(HostState.Waiting, "A streaming host is optional. Set up Windows, then start the desktop.", 0));
         }
     }

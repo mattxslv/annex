@@ -128,7 +128,7 @@ bundles. Archive tests use temporary fixtures and remove them afterward.
 
 `ChildStream.exe -preview stopped` opens a labeled synthetic native preview.
 `-capture-preview <directory>` renders fixtures, not live RDP or actual OS DPI
-acceptance. See [review scope](docs/code-review.md).
+acceptance.
 
 [MIT license](LICENSE). Thanks to [Sunshine](https://github.com/LizardByte/Sunshine),
 [Apollo](https://github.com/ClassicOldSong/Apollo),

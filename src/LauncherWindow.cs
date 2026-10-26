@@ -96,11 +96,11 @@ sealed class LauncherWindow : Form
         refreshHosts = Tool("Refresh", "Refresh hosts", (s, e) => Raise(RefreshHostsRequested));
         browseHost = Tool("Browse", "Browse host", (s, e) => Raise(BrowseHostRequested));
         var install = Tool("Install", "Install a host...", null);
-        install.Click += delegate {
-            var vendors = new ContextMenuStrip { Renderer = Theme.MenuRenderer(), BackColor = Theme.Surface, ForeColor = Theme.Text };
-            foreach (string name in new[] { "Sunshine", "Apollo" }) { string vendor = name; vendors.Items.Add(vendor, null, (s, e) => { if (InstallRequested != null) InstallRequested(vendor); }); }
-            vendors.Closed += delegate { vendors.Dispose(); }; vendors.Show(install, new Point(0, install.Height));
-        };
+        // Built once and reused: disposing the menu in its Closed event crashed when an item was clicked.
+        var vendors = new ContextMenuStrip { Renderer = Theme.MenuRenderer(), BackColor = Theme.Surface, ForeColor = Theme.Text };
+        foreach (string name in new[] { "Sunshine", "Apollo" }) { string vendor = name; vendors.Items.Add(vendor, null, (s, e) => { if (InstallRequested != null) InstallRequested(vendor); }); }
+        Disposed += delegate { vendors.Dispose(); };
+        install.Click += delegate { vendors.Show(install, new Point(0, install.Height)); };
         foreach (var tool in new[] { refreshHosts, browseHost, install }) { tool.Dock = DockStyle.Fill; tool.AutoSize = false; tool.Height = 32; tool.Margin = new Padding(1, 0, 1, 0); }
         hostTools.Controls.Add(refreshHosts, 0, 0); hostTools.Controls.Add(browseHost, 1, 0); hostTools.Controls.Add(install, 2, 0);
         hostCard.Add(hostTools);

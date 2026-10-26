@@ -155,6 +155,16 @@ static class Program
         DisableProcessWindowsGhosting();
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+        // Unexpected UI errors: log them and keep running with a short Annex dialog, not the .NET crash box.
+        bool reporting = false;
+        Application.ThreadException += (s, e) => {
+            Log("unexpected error: " + e.Exception);
+            if (reporting) return;
+            reporting = true;
+            try { AnnexDialog.Tell(null, "Something went wrong", e.Exception.Message + " Annex keeps running; details are in launcher.log.", true); }
+            catch (Exception) { }
+            finally { reporting = false; }
+        };
         try
         {
             if (command == "-capture-preview" && args.Length == 2) return LauncherPreview.Capture(args[1]);

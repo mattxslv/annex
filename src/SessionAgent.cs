@@ -53,7 +53,7 @@ static class PipeProtocol
             if (remaining <= 0 || !operation.Wait(remaining)) {
                 stream.Dispose();
                 operation.ContinueWith(t => GC.KeepAlive(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
-                throw new TimeoutException("The child helper did not respond in time.");
+                throw new TimeoutException("The Annex helper did not respond in time.");
             }
         }
         catch (AggregateException ex) { throw new IOException("Pipe operation failed.", ex.GetBaseException()); }
@@ -65,7 +65,7 @@ static class PipeProtocol
             Task<int> operation = stream.ReadAsync(bytes, offset, count - offset);
             Wait(operation, stream, timeout - (int)clock.ElapsedMilliseconds);
             int read = operation.Result;
-            if (read == 0) throw new EndOfStreamException("The child helper disconnected.");
+            if (read == 0) throw new EndOfStreamException("The Annex helper disconnected.");
             offset += read;
         }
         return bytes;
@@ -98,10 +98,10 @@ static class PipeProtocol
         string[] fields = (reply ?? "").Split('|'); HostState state; int port;
         if (fields.Length != 4 || fields[0] != "1" || !Enum.TryParse(fields[1], out state) || state.ToString() != fields[1] || !Enum.IsDefined(typeof(HostState), state) ||
             !int.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out port) || (port != 0 && !HostConfiguration.IsValidPort(port)) ||
-            ((state == HostState.Running || state == HostState.Stopped || state == HostState.Starting) && port == 0)) throw new InvalidDataException("Invalid child helper response.");
+            ((state == HostState.Running || state == HostState.Stopped || state == HostState.Starting) && port == 0)) throw new InvalidDataException("Invalid Annex helper response.");
         try { return new HostSnapshot(state, utf8.GetString(Convert.FromBase64String(fields[3])), port); }
-        catch (FormatException ex) { throw new InvalidDataException("Invalid child helper response.", ex); }
-        catch (DecoderFallbackException ex) { throw new InvalidDataException("Invalid child helper response.", ex); }
+        catch (FormatException ex) { throw new InvalidDataException("Invalid Annex helper response.", ex); }
+        catch (DecoderFallbackException ex) { throw new InvalidDataException("Invalid Annex helper response.", ex); }
     }
 }
 
@@ -151,8 +151,8 @@ static class HostNative
         finally { CloseHandle(handle); }
     }
     public static HostLaunchReceipt StartHost(ChildHostProfile profile) {
-        if (profile.CurrentIdentity() != profile.Identity) throw new IOException("The child host configuration changed. Refresh and confirm startup again.");
-        if (HostPorts.Collides(profile.BasePort, HostPorts.Occupied())) throw new IOException("A child-host TCP or UDP port is already in use. No existing listener was stopped. Close the conflicting app or change the child configuration.");
+        if (profile.CurrentIdentity() != profile.Identity) throw new IOException("The host configuration changed. Refresh and confirm startup again.");
+        if (HostPorts.Collides(profile.BasePort, HostPorts.Occupied())) throw new IOException("An Annex host TCP or UDP port is already in use. No existing listener was stopped. Close the conflicting app or change the host configuration.");
         HostLaunchSpec spec = HostProfiles.Adapter(profile.Installation).BuildLaunch(profile);
         bool elevate = ElevationPolicy.CanElevate(spec.Executable, profile.ConfigPath);
         ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
@@ -160,10 +160,10 @@ static class HostNative
             UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = spec.WorkingDirectory
         };
         using (var process = Process.Start(start)) {
-            if (process == null) throw new IOException("Windows did not return a child host process.");
+            if (process == null) throw new IOException("Windows did not return a host process.");
             long ticks = ProcessStartTicks(process.Id);
-            if (process.WaitForExit(1200)) throw new IOException("The child host exited during startup (exit code " + process.ExitCode + "). Check " + Path.Combine(profile.DataDirectory, "sunshine.log") + ".");
-            if (process.SessionId != CurrentSession() || !HostController.SamePath(ProcessPath((uint)process.Id), spec.Executable)) throw new IOException("The host did not start in this child desktop.");
+            if (process.WaitForExit(1200)) throw new IOException("The host exited during startup (exit code " + process.ExitCode + "). Check " + Path.Combine(profile.DataDirectory, "sunshine.log") + ".");
+            if (process.SessionId != CurrentSession() || !HostController.SamePath(ProcessPath((uint)process.Id), spec.Executable)) throw new IOException("The host did not start in this Annex desktop.");
             return new HostLaunchReceipt(process.Id, ticks, profile.Identity);
         }
     }
@@ -196,7 +196,7 @@ sealed class AgentClient
             string encoded = AgentCodec.Encode(request);
             uint reported;
             bool found = HostNative.WTSGetChildSessionId(out reported);
-            if (!PeerIdentity.MatchesChild(childSessionId, reported, found, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId())) return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Connect the actual child desktop before controlling its host.", 0) };
+            if (!PeerIdentity.MatchesChild(childSessionId, reported, found, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId())) return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Connect the actual Annex desktop before controlling its host.", 0) };
             string sid; using (var identity = WindowsIdentity.GetCurrent()) sid = identity.User.Value;
             using (var pipe = new NamedPipeClientStream(".", PipeIdentity.Name(root, sid, childSessionId), PipeDirection.InOut, PipeOptions.Asynchronous, TokenImpersonationLevel.Identification)) {
                 pipe.Connect(750); uint pid;
@@ -207,8 +207,8 @@ sealed class AgentClient
                 return AgentCodec.DecodeReply(PipeProtocol.ReadText(pipe, 2500));
             }
         }
-        catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper upgrade/repair required. Restart this folder's Annex.exe -agent inside the child desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
-        catch (Exception ex) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Child helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the child desktop. " + ex.Message, 0) }; }
+        catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper upgrade/repair required. Restart this folder's Annex.exe -agent inside the Annex desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
+        catch (Exception ex) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the Annex desktop. " + ex.Message, 0) }; }
     }
 }
 

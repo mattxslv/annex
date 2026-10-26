@@ -23,7 +23,7 @@ static class HostPorts
     public static int FindAvailable(NetworkPort[] occupied, int first, int last) {
         Family(first); Family(last); if (last < first) throw new ArgumentOutOfRangeException("last");
         for (int candidate = first; candidate <= last; candidate++) if (!Collides(candidate, occupied)) return candidate;
-        throw new IOException("No free child-host port family is available. Close the conflicting listener or choose another child configuration.");
+        throw new IOException("No free Annex host port family is available. Close the conflicting listener or choose another configuration.");
     }
     public static bool Collides(int port, NetworkPort[] occupied) { return Family(port).Any(p => (occupied ?? new NetworkPort[0]).Any(o => p.Tcp == o.Tcp && p.Port == o.Port)); }
     // Both IPv4 and IPv6 endpoints are deliberately reduced to protocol/port: binding either can block a wildcard host listener.
@@ -71,15 +71,15 @@ sealed class SunshineFamilyAdapter : IHostAdapter
     public string Validate(HostInstallation installation) {
         if (installation.Kind != Kind) return "The selected host does not match its launch adapter.";
         if (string.IsNullOrWhiteSpace(installation.Version) || !char.IsDigit(installation.Version[0])) return "This host has no recognized version metadata. Choose a released Sunshine or Apollo build.";
-        if (Kind == HostKind.VibePollo) return "VibePollo was detected, but independent child startup is not supported yet: its shared helper/display state and simultaneous instances need verification. Install Sunshine or Apollo for the child desktop; your main host can stay installed.";
+        if (Kind == HostKind.VibePollo) return "VibePollo was detected, but starting it inside Annex is not supported yet: its shared helper/display state and simultaneous instances need verification. Install Sunshine or Apollo for the Annex desktop; your main host can stay installed.";
         return null;
     }
     public string BuildConfiguration(HostInstallation installation, string directory, int basePort) {
         HostPorts.Family(basePort);
-        if (directory.IndexOfAny(new[] { '#', '\r', '\n', '"' }) >= 0) throw new NotSupportedException("The child-host folder contains characters that the host configuration cannot represent. Move Annex to a folder without # or quotes.");
+        if (directory.IndexOfAny(new[] { '#', '\r', '\n', '"' }) >= 0) throw new NotSupportedException("The Annex host folder contains characters that the host configuration cannot represent. Move Annex to a folder without # or quotes.");
         var config = new StringBuilder();
-        config.AppendLine("# Annex child desktop. Independent from the main host.");
-        config.AppendLine("sunshine_name = " + Environment.MachineName + " Child Desktop");
+        config.AppendLine("# Annex desktop. Independent from the main host.");
+        config.AppendLine("sunshine_name = " + Environment.MachineName + " Annex");
         config.AppendLine("port = " + basePort.ToString(CultureInfo.InvariantCulture));
         config.AppendLine("capture = wgc"); config.AppendLine("dd_configuration_option = disabled");
         if (Kind == HostKind.Apollo) config.AppendLine("isolated_virtual_display_option = disabled");
@@ -108,7 +108,7 @@ sealed class ChildHostProfile
 static class HostProfiles
 {
     internal static string Digest(string text) { using (var hash = SHA256.Create()) return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(text))).Replace("-", "").ToLowerInvariant(); }
-    internal static string ReadConfiguration(string path) { if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("The child host configuration exceeds 1 MiB."); return File.ReadAllText(path); }
+    internal static string ReadConfiguration(string path) { if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("The host configuration exceeds 1 MiB."); return File.ReadAllText(path); }
     public static IHostAdapter Adapter(HostInstallation host) { return new SunshineFamilyAdapter(host.Kind); }
     public static ChildHostProfile Prepare(string installRoot, HostInstallation host, NetworkPort[] occupied) {
         if (host == null) throw new ArgumentNullException("host");

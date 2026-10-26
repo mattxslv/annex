@@ -17,7 +17,7 @@ sealed class AgentReply
 {
     public int Version = 2;
     public string SelectionId = "", Diagnostic = "";
-    public HostSnapshot Status = new HostSnapshot(HostState.Checking, "Checking the child host...", 0);
+    public HostSnapshot Status = new HostSnapshot(HostState.Checking, "Checking the host...", 0);
     public AgentHost[] Hosts = new AgentHost[0]; public AgentApp[] Apps = new AgentApp[0];
 }
 
@@ -70,7 +70,7 @@ static class AgentCodec
         var reply = new AgentReply { SelectionId = String(data, "SelectionId", 64), Diagnostic = String(data, "Diagnostic", 512), Status = new HostSnapshot(state, String(data, "Message", 512), port) };
         if (!IsId(reply.SelectionId)) throw new InvalidDataException("Invalid selected host identity.");
         reply.Hosts = Array(data, "Hosts").Select(value => { var h = Object(value, "Id", "Name", "Path", "Version"); var host = new AgentHost { Id = String(h, "Id", 64), Name = String(h, "Name", 40), Path = String(h, "Path", 1024), Version = String(h, "Version", 80) }; if (!IsId(host.Id) || host.Id.Length == 0 || !new[] { "Sunshine", "Apollo", "VibePollo" }.Contains(host.Name)) throw new InvalidDataException("Invalid discovered host."); return host; }).ToArray();
-        reply.Apps = Array(data, "Apps").Select(value => { var a = Object(value, "Id", "Name", "Path"); var app = new AgentApp { Id = String(a, "Id", 64), Name = String(a, "Name", 80), Path = String(a, "Path", 1024) }; if (!IsId(app.Id) || app.Id.Length == 0) throw new InvalidDataException("Invalid child app."); return app; }).ToArray();
+        reply.Apps = Array(data, "Apps").Select(value => { var a = Object(value, "Id", "Name", "Path"); var app = new AgentApp { Id = String(a, "Id", 64), Name = String(a, "Name", 80), Path = String(a, "Path", 1024) }; if (!IsId(app.Id) || app.Id.Length == 0) throw new InvalidDataException("Invalid app."); return app; }).ToArray();
         return reply;
     }
 }
@@ -96,7 +96,7 @@ sealed class AgentService
             // Neither configuration refresh nor a different saved selection may replace it.
             if (controller != null && controller.StartInProgress) return Bounded(new AgentReply {
                 SelectionId = Key(profile.Installation), Hosts = Describe(found.Installations),
-                Status = new HostSnapshot(HostState.Starting, "Host startup is still pending in the child desktop. Check its elevation prompt before changing settings or starting another host.", profile.BasePort), Diagnostic = diagnostic
+                Status = new HostSnapshot(HostState.Starting, "Host startup is still pending in the Annex desktop. Check its elevation prompt before changing settings or starting another host.", profile.BasePort), Diagnostic = diagnostic
             });
             if (request.Command == "SELECT_HOST") {
                 HostInstallation target = found.Installations.FirstOrDefault(h => Key(h) == request.SelectionId);
@@ -115,14 +115,14 @@ sealed class AgentService
                 if (profile == null || profile.Installation.Id != current.Id || profile.CurrentIdentity() != profile.Identity) {
                     profile = HostProfiles.Prepare(root, current, HostPorts.Occupied()); var prepared = profile;
                     controller = new HostController(prepared, session, () => processes(prepared.Installation.ExecutablePath), () => {
-                        lock (gate) { if (!StillSelected(prepared)) throw new IOException("The child session, selected host or its configuration changed. Refresh and confirm startup again."); }
+                        lock (gate) { if (!StillSelected(prepared)) throw new IOException("The Annex desktop, selected host or its configuration changed. Refresh and confirm startup again."); }
                         return launch(prepared);
                     });
                 }
                 reply.SelectionId = Key(current); reply.Hosts = Describe(found.Installations);
                 reply.Status = controller.GetStatus();
                 if (request.Command == "START_HOST") {
-                    if (!isChild()) reply.Status = new HostSnapshot(HostState.Unavailable, "This helper is not in the actual child desktop. Reconnect or repair the helper.", 0);
+                    if (!isChild()) reply.Status = new HostSnapshot(HostState.Unavailable, "This helper is not in the actual Annex desktop. Reconnect or repair the helper.", 0);
                     else if (request.SelectionId != reply.SelectionId) reply.Diagnostic = "The host selection changed. Review the current host and confirm again.";
                     else reply.Status = controller.RequestStart();
                 }
@@ -135,7 +135,7 @@ sealed class AgentService
     AgentReply HandleApps(AgentRequest request) {
         var reply = new AgentReply { Status = new HostSnapshot(HostState.Waiting, "Apps do not require a streaming host.", 0) };
         try {
-            if (!isChild()) throw new IOException("Reconnect the actual child desktop before opening apps.");
+            if (!isChild()) throw new IOException("Reconnect the actual Annex desktop before opening apps.");
             apps.Clear();
             var candidates = ChildAppCatalog.Find(new NativeAppDiscovery()).ToList(); string record = Path.Combine(root, "child-apps.txt"); var registered = ChildAppCatalog.LoadRegistered(record).ToList();
             foreach (string path in registered) { try { var app = ChildAppCatalog.Register(path); if (!candidates.Any(a => HostController.SamePath(a.ExecutablePath, path))) candidates.Add(app); } catch (IOException) { } catch (ArgumentException) { } }

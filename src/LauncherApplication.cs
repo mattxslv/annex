@@ -25,7 +25,7 @@ sealed class LauncherApplication : IDisposable
     uint child;
     long lastAttempt;
     bool wantReconnect, ending, inFlight, promptOpen, setupReady, settingUp;
-    HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the child desktop to check its Sunshine instance.", 0);
+    HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the Annex desktop to check its Sunshine instance.", 0);
 
     public LauncherApplication(string baseDirectory)
     {
@@ -75,7 +75,7 @@ sealed class LauncherApplication : IDisposable
         setupReady = known && enabled;
         if (!setupReady) {
             window.SetSession("Setup required", known ? "Windows child sessions are not enabled yet." : "Windows could not report child-session support. Check launcher.log.", false, false);
-            window.ShowGuidance("One-time desktop setup", "Run scripts\\setup.ps1 once: it enables the Windows child desktop and registers the child helper. Setup / repair re-applies the Windows settings later. Windows may ask for administrator approval. A streaming host is optional.");
+            window.ShowGuidance("One-time desktop setup", "Run scripts\\setup.ps1 once: it enables the Windows Annex desktop and registers the Annex helper. Setup / repair re-applies the Windows settings later. Windows may ask for administrator approval. A streaming host is optional.");
             window.SetHost(new HostSnapshot(HostState.Waiting, "A streaming host is optional. Set up Windows, then start the desktop.", 0));
         }
     }
@@ -107,7 +107,7 @@ sealed class LauncherApplication : IDisposable
         if (password == null) password = Program.LoadPassword();
         if (password == null) {
             password = Program.PromptPassword(account);
-            if (password == null) { window.SetNotice("Connection canceled. No child desktop was opened."); return; }
+            if (password == null) { window.SetNotice("Connection canceled. No Annex desktop was opened."); return; }
             Program.SavePassword(password);
         }
         try {
@@ -155,9 +155,9 @@ sealed class LauncherApplication : IDisposable
         if (!Object.ReferenceEquals(host, pending)) { host = pending; window.SetHost(host); }
         requests.Update(actual, state == 1 && actual != 0); child = actual;
         if (appWindow != null && !appWindow.IsDisposed) appWindow.SetAvailable(actual != 0 && state == 1);
-        if (state == 1) window.SetSession("Connected", "The child desktop is attached. You can keep using your physical desktop.", true, true);
+        if (state == 1) window.SetSession("Connected", "The Annex desktop is attached. You can keep using your physical desktop.", true, true);
         else if (state != 0) window.SetSession("Connecting...", "Windows is opening the second desktop.", false, true);
-        else if (wantReconnect) window.SetSession("Reconnecting...", "The viewer disconnected. Your child session may still be running.", false, true);
+        else if (wantReconnect) window.SetSession("Reconnecting...", "The viewer disconnected. Your Annex desktop may still be running.", false, true);
         if (state == 1 && child != 0 && !inFlight && !promptOpen) RequestHost(new AgentRequest { Command = "STATUS" });
         if (state == 0 && wantReconnect && clock.ElapsedMilliseconds - lastAttempt > 6000) Connect();
     }
@@ -186,7 +186,7 @@ sealed class LauncherApplication : IDisposable
         if (string.IsNullOrEmpty(approvedSelection) || promptOpen || inFlight || !approval.CanProceed(child) || !StillConnected(approval.Child) || !LauncherPolicy.CanStartHost(host, true)) return;
         promptOpen = true;
         DialogResult answer;
-        try { answer = MessageBox.Show(window, "Start " + selectedName + " inside the child desktop?\n\nThis uses the child's settings and ports. Windows may ask you to approve elevation inside that desktop.", "Start " + selectedName + "?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2); }
+        try { answer = MessageBox.Show(window, "Start " + selectedName + " inside the Annex desktop?\n\nThis uses Annex's own settings and ports. Windows may ask you to approve elevation inside that desktop.", "Start " + selectedName + "?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2); }
         finally { promptOpen = false; }
         if (answer == DialogResult.Yes) {
             if (approvedSelection == selection && approval.CanProceed(child) && StillConnected(approval.Child)) RequestHost(new AgentRequest { Command = "START_HOST", SelectionId = approvedSelection });
@@ -208,8 +208,8 @@ sealed class LauncherApplication : IDisposable
                 if (process == null) throw new IOException("Windows did not start setup."); await Task.Run(() => process.WaitForExit());
                 if (ending || window.IsDisposed) return;
                 bool enabled; setupReady = process.ExitCode == 0 && Program.ChildSessionsEnabled(out enabled) && enabled;
-                if (setupReady && State() == 0) { window.SetSession("Ready", "Windows desktop setup is ready. A streaming host is optional.", false, true); window.ShowGuidance("Ready for a second desktop", "Choose Start desktop. If a helper is already running from an older EXE, restart it inside the child desktop after saving your work."); }
-                window.SetNotice(setupReady ? "Setup is ready. Existing child sessions may need their helper restarted; your apps were left open." : "Setup did not finish. Review the setup message and launcher.log, then retry.");
+                if (setupReady && State() == 0) { window.SetSession("Ready", "Windows desktop setup is ready. A streaming host is optional.", false, true); window.ShowGuidance("Ready for a second desktop", "Choose Start desktop. If a helper is already running from an older EXE, restart it inside the Annex desktop after saving your work."); }
+                window.SetNotice(setupReady ? "Setup is ready. Existing Annex desktops may need their helper restarted; your apps were left open." : "Setup did not finish. Review the setup message and launcher.log, then retry.");
             }
         } catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Setup failed: " + ex.Message); }
         finally { settingUp = false; }
@@ -251,7 +251,7 @@ sealed class LauncherApplication : IDisposable
         if (ending || promptOpen || !approval.CanProceed(child) || !StillConnected(approval.Child)) return;
         promptOpen = true;
         DialogResult answer;
-        try { answer = MessageBox.Show(window, "Sign out the child desktop? All games and applications in it will close.", "End child session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2); }
+        try { answer = MessageBox.Show(window, "Sign out the Annex desktop? All games and applications in it will close.", "End Annex session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2); }
         finally { promptOpen = false; }
         if (answer != DialogResult.Yes) return;
         if (!approval.CanProceed(child) || !StillConnected(approval.Child)) {
@@ -265,7 +265,7 @@ sealed class LauncherApplication : IDisposable
         }
         catch (Exception ex) {
             ending = false; wantReconnect = previousReconnect; window.SetEnding(false); Program.Log("signout failed: " + ex.Message);
-            MessageBox.Show(window, "Could not sign out the child desktop.\n" + ex.Message, "Annex", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(window, "Could not sign out the Annex desktop.\n" + ex.Message, "Annex", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
     public void Dispose() { requests.Close(); timer.Dispose(); tray.Dispose(); menu.Dispose(); window.Dispose(); }

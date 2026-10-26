@@ -94,17 +94,17 @@ static class ChildAppLauncher
         return null;
     }
     public static AppLaunchResult Launch(AppLaunchSpec spec, uint approvedChild, Func<uint> currentChild, Func<AppLaunchSpec, AppLaunchResult> start) {
-        try { uint current = currentChild(); if (approvedChild == 0 || approvedChild > int.MaxValue || current != approvedChild) return new AppLaunchResult(AppLaunchState.Failed, "The child desktop changed. Reconnect and choose the app again."); return start(spec); }
-        catch (Exception ex) { return new AppLaunchResult(AppLaunchState.Failed, "Could not open the child app: " + ex.Message); }
+        try { uint current = currentChild(); if (approvedChild == 0 || approvedChild > int.MaxValue || current != approvedChild) return new AppLaunchResult(AppLaunchState.Failed, "The Annex desktop changed. Reconnect and choose the app again."); return start(spec); }
+        catch (Exception ex) { return new AppLaunchResult(AppLaunchState.Failed, "Could not open the app: " + ex.Message); }
     }
     public static AppLaunchResult NativeStart(AppLaunchSpec spec) {
         var ownership = Ownership(spec, HostNative.CurrentSession(), HostNative.Processes(spec.Executable)); if (ownership != null) return ownership;
         ChildAppCatalog.ValidatePath(spec.Executable);
         using (var process = Process.Start(new ProcessStartInfo(spec.Executable, NativeArguments.Join(spec.Arguments)) { UseShellExecute = true, WorkingDirectory = spec.WorkingDirectory })) {
-            if (process == null) return new AppLaunchResult(AppLaunchState.Failed, "Windows returned no app process. Check the child desktop for an existing window.");
-            if (process.WaitForExit(600)) return new AppLaunchResult(AppLaunchState.EarlyExit, "The app launcher exited (code " + process.ExitCode + "). Check for an existing window in the child desktop. If none appears, the app may require its own launcher or may not support this session.");
-            if (process.SessionId != HostNative.CurrentSession()) return new AppLaunchResult(AppLaunchState.Failed, "The app did not remain in the child desktop.");
-            return new AppLaunchResult(AppLaunchState.Dispatched, spec.Kind == ChildAppKind.WallpaperEngine ? "Wallpaper Engine was launched in the child desktop. Check its UI and RDP monitor mapping; its settings may also affect the main desktop." : "The app was launched in the child desktop. Check its window there; a running process does not verify rendering, sign-in or game compatibility.");
+            if (process == null) return new AppLaunchResult(AppLaunchState.Failed, "Windows returned no app process. Check the Annex desktop for an existing window.");
+            if (process.WaitForExit(600)) return new AppLaunchResult(AppLaunchState.EarlyExit, "The app launcher exited (code " + process.ExitCode + "). Check for an existing window in the Annex desktop. If none appears, the app may require its own launcher or may not support this session.");
+            if (process.SessionId != HostNative.CurrentSession()) return new AppLaunchResult(AppLaunchState.Failed, "The app did not remain in the Annex desktop.");
+            return new AppLaunchResult(AppLaunchState.Dispatched, spec.Kind == ChildAppKind.WallpaperEngine ? "Wallpaper Engine was launched in the Annex desktop. Check its UI and RDP monitor mapping; its settings may also affect the main desktop." : "The app was launched in the Annex desktop. Check its window there; a running process does not verify rendering, sign-in or game compatibility.");
         }
     }
 }

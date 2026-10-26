@@ -125,13 +125,13 @@ sealed class HostController
         if (!File.Exists(config.ExecutablePath))
             return new HostSnapshot(HostState.Missing, "Sunshine is not installed here. Run scripts\\setup.ps1 from the portable ZIP as administrator.", 0);
         if (!File.Exists(config.ConfigPath))
-            return new HostSnapshot(HostState.Missing, "Sunshine configuration is missing. Run setup to create the child host configuration.", 0);
+            return new HostSnapshot(HostState.Missing, "Sunshine configuration is missing. Run setup to create the host configuration.", 0);
         int port;
         try { port = HostConfiguration.ParsePort(File.ReadAllText(config.ConfigPath)); }
         catch (Exception ex) { return new HostSnapshot(HostState.Error, "Cannot read Sunshine settings: " + ex.Message, 0); }
         if (profile != null) {
-            try { if (profile.CurrentIdentity() != profile.Identity) return new HostSnapshot(HostState.Unknown, "Child host settings changed. Refresh the selected host before starting or pairing.", 0); }
-            catch (Exception ex) { return new HostSnapshot(HostState.Error, "Cannot verify child host settings: " + ex.Message, 0); }
+            try { if (profile.CurrentIdentity() != profile.Identity) return new HostSnapshot(HostState.Unknown, "Host settings changed. Refresh the selected host before starting or pairing.", 0); }
+            catch (Exception ex) { return new HostSnapshot(HostState.Error, "Cannot verify host settings: " + ex.Message, 0); }
         }
         bool unknown = false;
         try
@@ -144,15 +144,15 @@ sealed class HostController
                 {
                     if (profile != null && (process.ConfigPath != null ? !SamePath(process.ConfigPath, profile.ConfigPath) : receipt == null || !receipt.Matches(process, profile.Identity))) { unknown = true; continue; }
                     lastError = null;
-                    return new HostSnapshot(HostState.Running, "The host is running in the child desktop. Streaming still depends on host capture and client settings." + (ElevationPolicy.LastLaunchNote ?? ""), port);
+                    return new HostSnapshot(HostState.Running, "The host is running in the Annex desktop. Streaming still depends on host capture and client settings." + (ElevationPolicy.LastLaunchNote ?? ""), port);
                 }
             }
         }
         catch (Exception ex) { return new HostSnapshot(HostState.Unknown, "Cannot inspect the host process: " + ex.Message, port); }
-        if (unknown) return new HostSnapshot(HostState.Unknown, "A child host may already be running, but its process or configuration could not be verified. Another will not be started. Restart that host through Annex to identify its settings.", 0);
-        if (starting) return new HostSnapshot(HostState.Starting, "Starting Sunshine. Approve Windows elevation inside the child desktop if asked.", port);
+        if (unknown) return new HostSnapshot(HostState.Unknown, "A host may already be running, but its process or configuration could not be verified. Another will not be started. Restart that host through Annex to identify its settings.", 0);
+        if (starting) return new HostSnapshot(HostState.Starting, "Starting Sunshine. Approve Windows elevation inside the Annex desktop if asked.", port);
         if (lastError != null) return new HostSnapshot(HostState.Error, lastError, port);
-        return new HostSnapshot(HostState.Stopped, "Sunshine is off in the child desktop. Start it to make this desktop available to your client.", port);
+        return new HostSnapshot(HostState.Stopped, "Sunshine is off in the Annex desktop. Start it to make this desktop available to your client.", port);
     }
 
     public HostSnapshot RequestStart()
@@ -176,7 +176,7 @@ sealed class HostController
                     }
                 }
                 catch (Win32Exception ex) {
-                    error = ex.NativeErrorCode == 1223 ? "Windows canceled Sunshine startup. You can try again and approve elevation inside the child desktop." : "Could not start Sunshine: " + ex.Message;
+                    error = ex.NativeErrorCode == 1223 ? "Windows canceled Sunshine startup. You can try again and approve elevation inside the Annex desktop." : "Could not start Sunshine: " + ex.Message;
                 }
                 catch (Exception ex) { error = "Could not start Sunshine: " + ex.Message; }
                 finally { lock (gate) { starting = false; lastError = error; } }
@@ -184,7 +184,7 @@ sealed class HostController
             worker.IsBackground = true;
             worker.SetApartmentState(ApartmentState.STA);
             worker.Start();
-            return new HostSnapshot(HostState.Starting, "Starting Sunshine. Check the child desktop for the Windows elevation prompt.", current.BasePort);
+            return new HostSnapshot(HostState.Starting, "Starting Sunshine. Check the Annex desktop for the Windows elevation prompt.", current.BasePort);
         }
     }
 }

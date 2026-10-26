@@ -18,7 +18,7 @@ sealed class LauncherWindow : Form
     readonly Panel workspace, placeholder;
     readonly ToolStripStatusLabel footer;
     readonly ToolTip tips = new ToolTip();
-    HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the child desktop to check its Sunshine instance.", 0);
+    HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the Annex desktop to check its Sunshine instance.", 0);
     bool connected, busy, ending, showPairingHelp, setupReady = true;
     bool hasSelection;
     string hostName;
@@ -103,7 +103,7 @@ sealed class LauncherWindow : Form
             catch (Exception) { SetNotice("Clipboard is busy. Select and copy the address manually."); }
         }); copyAddress.Dock = DockStyle.None;
         settingsAddress = new TextBox { ReadOnly = true, Text = "Available when Sunshine is running", Width = 250, Margin = new Padding(8, 4, 8, 4), AccessibleName = "Sunshine web UI URL" };
-        tips.SetToolTip(settingsAddress, "Open this on your normal PC desktop. You do not need Chrome inside the child desktop.");
+        tips.SetToolTip(settingsAddress, "Open this on your normal PC desktop. You do not need Chrome inside the Annex desktop.");
         copySettings = Button("Copy settings URL", false, (s, e) => {
             string url = LauncherPolicy.SettingsUrl(host);
             if (!connected || url == null) return;
@@ -118,7 +118,7 @@ sealed class LauncherWindow : Form
         openApp = Button("Open &app", false, (s, e) => Raise(OpenAppRequested)); openApp.Dock = DockStyle.None; tools.Controls.Add(openApp);
         var tray = Button("Minimize to tray", false, (s, e) => Raise(MinimizeRequested)); tray.Dock = DockStyle.None; tools.Controls.Add(tray);
         endSession = Button("End session...", false, (s, e) => Raise(EndSessionRequested)); endSession.Kind = ButtonKind.Danger; endSession.Tag = ButtonKind.Danger; endSession.Dock = DockStyle.None; tools.Controls.Add(endSession); right.Controls.Add(tools, 0, 0);
-        workspace = new Frame { Name = "DesktopWorkspace", AccessibleName = "Child desktop workspace", Dock = DockStyle.Fill, BackColor = Color.FromArgb(10, 12, 16), Margin = Padding.Empty };
+        workspace = new Frame { Name = "DesktopWorkspace", AccessibleName = "Annex desktop workspace", Dock = DockStyle.Fill, BackColor = Color.FromArgb(10, 12, 16), Margin = Padding.Empty };
         if (Theme.HighContrast) workspace.BackColor = SystemColors.Window;
         right.Controls.Add(workspace, 0, 1);
         placeholder = new Panel { Dock = DockStyle.Fill, Padding = new Padding(44), BackColor = workspace.BackColor, AutoScroll = true };
@@ -243,7 +243,7 @@ static class LauncherPreview
     {
         var form = new LauncherWindow(true);
         form.SetSession("Connected", "Preview of a separate Windows desktop. No real session is connected.", true, true);
-        form.SetHost(new HostSnapshot(state, state == HostState.Running ? "Sunshine is running in the child desktop. Pair your compatible client with this host." : state == HostState.Stopped ? "Sunshine is off in the child desktop. Start it to make this desktop available to your client." : state == HostState.Checking ? "Checking Sunshine in the attached child desktop..." : "Child helper unavailable. Run setup and reconnect a newly signed-in child desktop, or start the helper inside the existing child desktop.", state == HostState.Unavailable || state == HostState.Checking ? 0 : 48989));
+        form.SetHost(new HostSnapshot(state, state == HostState.Running ? "Sunshine is running in the Annex desktop. Pair your compatible client with this host." : state == HostState.Stopped ? "Sunshine is off in the Annex desktop. Start it to make this desktop available to your client." : state == HostState.Checking ? "Checking Sunshine in the attached Annex desktop..." : "Annex helper unavailable. Run setup and reconnect a newly signed-in Annex desktop, or start the helper inside the existing Annex desktop.", state == HostState.Unavailable || state == HostState.Checking ? 0 : 48989));
         form.ShowGuidance("Preview mode", "This is a synthetic GUI preview. No Windows session, credentials, streaming host, or system settings are accessed.");
         form.StartHostRequested += delegate { form.SetHost(new HostSnapshot(HostState.Running, "Preview: Sunshine would be started only after confirmation in the real launcher.", 48989)); };
         form.ConnectRequested += delegate { form.SetNotice("The desktop action is simulated."); };
@@ -258,7 +258,7 @@ static class LauncherPreview
         Directory.CreateDirectory(directory);
         foreach (HostState state in new[] { HostState.Stopped, HostState.Running, HostState.Unavailable, HostState.Checking, HostState.Missing })
         using (var form = Create(state)) {
-            if (state == HostState.Missing) form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Missing, "Install Sunshine, Apollo or VibePollo to stream. You can keep using the child desktop.", 0) });
+            if (state == HostState.Missing) form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Missing, "Install Sunshine, Apollo or VibePollo to stream. You can keep using the Annex desktop.", 0) });
             if (state == HostState.Running) form.SetNotice(LauncherPolicy.SettingsFeedback(true));
             form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
             form.Show(); Application.DoEvents();
@@ -271,7 +271,7 @@ static class LauncherPreview
             }
             if (state == HostState.Stopped) {
                 string selected = new string('a', 64);
-                form.SetDiscovery(new AgentReply { SelectionId = selected, Hosts = new[] { new AgentHost { Id = selected, Name = "Apollo", Path = @"C:\Program Files\Apollo\sunshine.exe", Version = "0.4" }, new AgentHost { Id = new string('b', 64), Name = "Sunshine", Path = @"E:\Streaming host with a long folder name\Sunshine\sunshine.exe", Version = "2026.914" } }, Status = new HostSnapshot(HostState.Stopped, "The child host is off. Start it when you want to stream this desktop.", 48989) });
+                form.SetDiscovery(new AgentReply { SelectionId = selected, Hosts = new[] { new AgentHost { Id = selected, Name = "Apollo", Path = @"C:\Program Files\Apollo\sunshine.exe", Version = "0.4" }, new AgentHost { Id = new string('b', 64), Name = "Sunshine", Path = @"E:\Streaming host with a long folder name\Sunshine\sunshine.exe", Version = "2026.914" } }, Status = new HostSnapshot(HostState.Stopped, "The host is off. Start it when you want to stream this desktop.", 48989) });
                 form.SetNotice(LauncherPolicy.SettingsFeedback(false));
                 form.ClientSize = new Size(900, 640); Application.DoEvents();
                 using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(directory, "compact.png"), ImageFormat.Png); }
@@ -287,7 +287,7 @@ static class LauncherPreview
             prompt.Close();
         }
         using (var apps = new ChildAppWindow()) {
-            apps.ShowInTaskbar = false; apps.StartPosition = FormStartPosition.Manual; apps.Location = new Point(-20000, -20000); apps.SetApps(new[] { new AgentApp { Id = new string('a', 64), Name = "Chrome", Path = @"C:\Program Files\Google\Chrome\Application\chrome.exe" }, new AgentApp { Id = new string('b', 64), Name = "Wallpaper Engine", Path = @"C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\wallpaper64.exe" } }, "Browsers use a separate child profile. Check the app's window in the child desktop after opening it."); apps.Show(); Application.DoEvents();
+            apps.ShowInTaskbar = false; apps.StartPosition = FormStartPosition.Manual; apps.Location = new Point(-20000, -20000); apps.SetApps(new[] { new AgentApp { Id = new string('a', 64), Name = "Chrome", Path = @"C:\Program Files\Google\Chrome\Application\chrome.exe" }, new AgentApp { Id = new string('b', 64), Name = "Wallpaper Engine", Path = @"C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\wallpaper64.exe" } }, "Browsers use a separate Annex profile. Check the app's window in the Annex desktop after opening it."); apps.Show(); Application.DoEvents();
             using (var bitmap = new Bitmap(apps.Width, apps.Height)) { apps.DrawToBitmap(bitmap, new Rectangle(Point.Empty, apps.Size)); bitmap.Save(Path.Combine(directory, "apps.png"), ImageFormat.Png); }
             apps.Close();
         }

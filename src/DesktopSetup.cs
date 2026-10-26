@@ -76,7 +76,7 @@ static class DesktopSetup
             actions.WriteRegistryDword(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations", "DWMFRAMEINTERVAL", 8);
             actions.WriteRegistryDword(@"HKEY_CURRENT_USER\Software\Microsoft\Terminal Server Client", "RemoteDesktop_SuppressWhenMinimized", 2);
             actions.WriteInstallationRecord(plan.InstallRoot);
-            return new DesktopSetupResult(true, "Windows desktop setup is ready. If the child helper is not registered yet, run scripts\\setup.ps1 once. A streaming host is optional.");
+            return new DesktopSetupResult(true, "Windows desktop setup is ready. If the Annex helper is not registered yet, run scripts\\setup.ps1 once. A streaming host is optional.");
         } catch (Exception ex) { return new DesktopSetupResult(false, "Windows setup did not finish: " + ex.Message + " Some earlier settings may have changed; repair explicitly after resolving the error."); }
     }
     public static int Run(string root, string expectedUser)

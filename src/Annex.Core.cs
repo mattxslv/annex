@@ -52,10 +52,10 @@ sealed class ChildSessionController
     {
         uint child = getChildSession();
         if (child != approvedChild)
-            throw new InvalidOperationException("The child desktop changed after confirmation. Review it before signing out.");
+            throw new InvalidOperationException("The Annex desktop changed after confirmation. Review it before signing out.");
         // Never let the no-child sentinel mean WTS_CURRENT_SESSION to logoff.
         if (child == uint.MaxValue || child == 0 || child == currentSession || child == consoleSession)
-            throw new InvalidOperationException("No child session belonging to this launcher is available to sign out.");
+            throw new InvalidOperationException("No Annex desktop belonging to this launcher is available to sign out.");
         logoff(child);
     }
 }

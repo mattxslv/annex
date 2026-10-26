@@ -42,11 +42,10 @@ HEADER = (43, 43, 43)  # Inno Setup's dark wizard background
 
 
 def small(size):
-    # The installer positions the box itself (annex.iss InitializeWizard); a small inset keeps edges clean.
-    inner = round(size * 0.72)
-    mark = logo.render(inner, logo.FULL)
+    # No padding: annex.iss sizes and positions the box so the margins are exact.
+    mark = logo.render(size, logo.FULL)
     img = Image.new('RGB', (size, size), HEADER)
-    img.paste(mark, ((size - inner) // 2, (size - inner) // 2), mark)
+    img.paste(mark, (0, 0), mark)
     return img
 
 
@@ -54,5 +53,5 @@ if __name__ == '__main__':
     out = ROOT / 'installer'
     for s in (1, 2):
         banner(s).save(out / f'wizard-{s * 100}.bmp')
-        small(55 * s).save(out / f'small-{s * 100}.bmp')
+        small(72 * s).save(out / f'small-{s * 100}.bmp')
     print('wrote installer/wizard-*.bmp and small-*.bmp')

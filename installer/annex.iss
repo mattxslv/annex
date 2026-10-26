@@ -93,48 +93,62 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
-// Header inside the same margins as the page content: taller, with title/description and the
-// corner logo centred vertically, title aligned with the content's left edge, logo ending the
-// same distance from the right edge. Re-applied on page changes because Inno lays it out again.
+// Header: the same margin above the logo, to its right, and left of the title (the page content's
+// left inset). The header is margin + logo + margin tall; title and description are centred against
+// the logo. Re-applied on page changes because Inno lays the header out again.
 const
-  HeaderHeight = 84;
+  LogoSize = 72;      // logo box; the visible mark spans x 2..62 and y 8..56 of a 64-unit grid
+  PanelAdjust = 0;    // header panel offset from the page edge, measured
 
 procedure PlaceHeader;
 var
   Logo: TBitmapImage;
-  Inset, Grow, TextHeight, TextTop, DescOffset: Integer;
+  M, S, VisTop, VisHeight, VisRight, Want, Grow, DescOffset, TextHeight, TextTop: Integer;
 begin
-  Grow := ScaleY(HeaderHeight) - WizardForm.MainPanel.Height;
-  if Grow > 0 then begin
-    WizardForm.MainPanel.Height := WizardForm.MainPanel.Height + Grow;
+  M := WizardForm.InnerNotebook.Left + WizardForm.SelectTasksLabel.Left;
+  S := ScaleY(LogoSize);
+  VisTop := S * 8 div 64; VisHeight := S * 48 div 64; VisRight := S * 2 div 64;
+  Want := M + VisHeight + M;
+  Grow := Want - WizardForm.MainPanel.Height;
+  if Grow <> 0 then begin
+    WizardForm.MainPanel.Height := Want;
     WizardForm.InnerNotebook.Top := WizardForm.InnerNotebook.Top + Grow;
     WizardForm.InnerNotebook.Height := WizardForm.InnerNotebook.Height - Grow;
     WizardForm.Bevel1.Top := WizardForm.Bevel1.Top + Grow;
   end;
-  Inset := WizardForm.InnerNotebook.Left + WizardForm.SelectTasksLabel.Left;
   Logo := WizardForm.WizardSmallBitmapImage;
-  Logo.Top := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
-  // +12: the bitmap has transparent padding, and the header panel is offset from the page edge.
-  Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - Inset + ScaleX(12);
+  Logo.Stretch := True;
+  Logo.SetBounds(WizardForm.MainPanel.ClientWidth - S + VisRight - M + ScaleX(PanelAdjust), M - VisTop, S, S);
   DescOffset := WizardForm.PageDescriptionLabel.Top - WizardForm.PageNameLabel.Top;
   TextHeight := DescOffset + WizardForm.PageDescriptionLabel.Height;
-  TextTop := (WizardForm.MainPanel.ClientHeight - TextHeight) div 2;
-  WizardForm.PageNameLabel.Top := TextTop;
-  WizardForm.PageDescriptionLabel.Top := TextTop + DescOffset;
-  WizardForm.PageNameLabel.Left := Inset;
-  WizardForm.PageDescriptionLabel.Left := Inset;
-  WizardForm.PageNameLabel.Width := Logo.Left - Inset - ScaleX(12);
-  WizardForm.PageDescriptionLabel.Width := WizardForm.PageNameLabel.Width;
+  TextTop := M + (VisHeight - TextHeight) div 2;
+  WizardForm.PageNameLabel.SetBounds(M, TextTop, Logo.Left - M - ScaleX(16), WizardForm.PageNameLabel.Height);
+  WizardForm.PageDescriptionLabel.SetBounds(M, TextTop + DescOffset, WizardForm.PageNameLabel.Width, WizardForm.PageDescriptionLabel.Height);
+end;
+
+// Welcome and finish pages: the heading starts below the top of the banner, text follows it.
+// The banner bitmap is drawn centred (not stretched) in a page-high control, so its visible top
+// edge is below the control's top.
+procedure PlaceBannerText(Heading, Body: TNewStaticText);
+var
+  BannerTop: Integer;
+begin
+  BannerTop := WizardForm.WizardBitmapImage.Top + (WizardForm.WizardBitmapImage.Height - ScaleY(314)) div 2;
+  Heading.Top := BannerTop + ScaleY(24);
+  Body.Top := Heading.Top + ScaleY(46);
 end;
 
 procedure InitializeWizard;
 begin
   PlaceHeader;
+  PlaceBannerText(WizardForm.WelcomeLabel1, WizardForm.WelcomeLabel2);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
   PlaceHeader;
+  if CurPageID = wpWelcome then PlaceBannerText(WizardForm.WelcomeLabel1, WizardForm.WelcomeLabel2);
+  if CurPageID = wpFinished then PlaceBannerText(WizardForm.FinishedHeadingLabel, WizardForm.FinishedLabel);
 end;
 
 // Nothing is installed before the Installing page, so Cancel just closes without asking.

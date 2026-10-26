@@ -49,6 +49,12 @@ FinishedLabel=Open Annex and choose Start desktop. The first time, it asks for y
 ClickFinish=
 ClickNext=
 StatusRunProgram=Setting up Windows for Annex...
+UninstallAppTitle=Remove Annex
+UninstallAppFullTitle=Remove Annex
+ConfirmUninstall=Remove Annex?%n%nThis signs out the Annex desktop, removes Annex and its Sunshine, and puts your Windows settings back the way they were before Annex. Windows asks once for administrator approval.
+UninstallStatusLabel=Removing Annex and restoring your Windows settings...
+UninstalledAll=Annex was removed and your Windows settings were restored.
+UninstalledMost=Annex was removed. A few files were still in use; you can delete the Annex folder in %LOCALAPPDATA%\Programs yourself.
 
 [Tasks]
 Name: "sunshine"; Description: "Download Sunshine for the Annex desktop (recommended, about 36 MB)"; GroupDescription: "Streaming"
@@ -101,30 +107,41 @@ const
   LogoSize = 72;      // logo box; the visible mark spans x 2..62 and y 8..56 of a 64-unit grid
   PanelAdjust = 0;    // header panel offset from the page edge, measured
 
-procedure PlaceHeader;
+procedure LayoutHeader(Panel: TPanel; NameLabel, DescLabel: TNewStaticText; Logo: TBitmapImage; Notebook: TNewNotebook; Bevel: TBevel; M: Integer);
 var
-  Logo: TBitmapImage;
-  M, S, VisTop, VisHeight, VisRight, Want, Grow, DescOffset, TextHeight, TextTop: Integer;
+  S, VisTop, VisHeight, VisRight, Want, Grow, DescOffset, TextHeight, TextTop: Integer;
 begin
-  M := WizardForm.InnerNotebook.Left + WizardForm.SelectTasksLabel.Left;
   S := ScaleY(LogoSize);
   VisTop := S * 8 div 64; VisHeight := S * 48 div 64; VisRight := S * 2 div 64;
   Want := M + VisHeight + M;
-  Grow := Want - WizardForm.MainPanel.Height;
+  Grow := Want - Panel.Height;
   if Grow <> 0 then begin
-    WizardForm.MainPanel.Height := Want;
-    WizardForm.InnerNotebook.Top := WizardForm.InnerNotebook.Top + Grow;
-    WizardForm.InnerNotebook.Height := WizardForm.InnerNotebook.Height - Grow;
-    WizardForm.Bevel1.Top := WizardForm.Bevel1.Top + Grow;
+    Panel.Height := Want;
+    Notebook.Top := Notebook.Top + Grow;
+    Notebook.Height := Notebook.Height - Grow;
+    Bevel.Top := Bevel.Top + Grow;
   end;
-  Logo := WizardForm.WizardSmallBitmapImage;
   Logo.Stretch := True;
-  Logo.SetBounds(WizardForm.MainPanel.ClientWidth - S + VisRight - M + ScaleX(PanelAdjust), M - VisTop, S, S);
-  DescOffset := WizardForm.PageDescriptionLabel.Top - WizardForm.PageNameLabel.Top;
-  TextHeight := DescOffset + WizardForm.PageDescriptionLabel.Height;
+  Logo.SetBounds(Panel.ClientWidth - S + VisRight - M + ScaleX(PanelAdjust), M - VisTop, S, S);
+  DescOffset := DescLabel.Top - NameLabel.Top;
+  TextHeight := DescOffset + DescLabel.Height;
   TextTop := M + (VisHeight - TextHeight) div 2;
-  WizardForm.PageNameLabel.SetBounds(M, TextTop, Logo.Left - M - ScaleX(16), WizardForm.PageNameLabel.Height);
-  WizardForm.PageDescriptionLabel.SetBounds(M, TextTop + DescOffset, WizardForm.PageNameLabel.Width, WizardForm.PageDescriptionLabel.Height);
+  NameLabel.SetBounds(M, TextTop, Logo.Left - M - ScaleX(16), NameLabel.Height);
+  DescLabel.SetBounds(M, TextTop + DescOffset, NameLabel.Width, DescLabel.Height);
+end;
+
+procedure PlaceHeader;
+begin
+  LayoutHeader(WizardForm.MainPanel, WizardForm.PageNameLabel, WizardForm.PageDescriptionLabel, WizardForm.WizardSmallBitmapImage,
+    WizardForm.InnerNotebook, WizardForm.Bevel1, WizardForm.InnerNotebook.Left + WizardForm.SelectTasksLabel.Left);
+end;
+
+// The uninstaller gets the same header.
+procedure InitializeUninstallProgressForm;
+begin
+  LayoutHeader(UninstallProgressForm.MainPanel, UninstallProgressForm.PageNameLabel, UninstallProgressForm.PageDescriptionLabel,
+    UninstallProgressForm.WizardSmallBitmapImage, UninstallProgressForm.InnerNotebook, UninstallProgressForm.Bevel1,
+    UninstallProgressForm.InnerNotebook.Left + UninstallProgressForm.StatusLabel.Left);
 end;
 
 // Welcome and finish pages: the heading starts below the top of the banner, text follows it.

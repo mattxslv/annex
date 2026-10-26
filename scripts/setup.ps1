@@ -15,12 +15,31 @@
   Windows asks for administrator approval. Hosts are optional; an existing Sunshine config is kept.
 #>
 [CmdletBinding()]
-param([switch]$KeepRemoteDesktop, [switch]$RouteAudio, [switch]$InstallSunshine)
+param([switch]$KeepRemoteDesktop, [switch]$RouteAudio, [switch]$InstallSunshine,
+    # Used by the installer: Annex.exe is prebuilt, and the installer makes its own shortcuts.
+    [switch]$NoBuild, [switch]$NoShortcut)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-& (Join-Path $PSScriptRoot 'build.ps1')
 $launcher = Join-Path $root 'Annex.exe'
+if (-not ($NoBuild -and (Test-Path -LiteralPath $launcher -PathType Leaf))) { & (Join-Path $PSScriptRoot 'build.ps1') }
 if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw 'Annex.exe is missing after build.' }
+
+# Remember the Windows settings as they were before Annex, once, so uninstall.ps1 can put them back.
+$statePath = Join-Path $root 'setup-state.json'
+if (-not (Test-Path -LiteralPath $statePath)) {
+    try {
+        Add-Type -Namespace AnnexSetup -Name Wts -MemberDefinition '[DllImport("wtsapi32.dll")] public static extern bool WTSIsChildSessionsEnabled(out bool enabled);'
+        $childSessions = $false; [void][AnnexSetup.Wts]::WTSIsChildSessionsEnabled([ref]$childSessions)
+        $ts = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
+        [pscustomobject]@{
+            fDenyTSConnections = (Get-ItemProperty $ts -ErrorAction SilentlyContinue).fDenyTSConnections
+            DWMFRAMEINTERVAL = (Get-ItemProperty "$ts\WinStations" -ErrorAction SilentlyContinue).DWMFRAMEINTERVAL
+            SuppressWhenMinimized = (Get-ItemProperty 'HKCU:\Software\Microsoft\Terminal Server Client' -ErrorAction SilentlyContinue).RemoteDesktop_SuppressWhenMinimized
+            ChildSessions = $childSessions
+            RemoteDesktopRulesEnabled = @(Get-NetFirewallRule -Group '@FirewallAPI.dll,-28752' -ErrorAction SilentlyContinue | Where-Object Enabled -eq 'True' | ForEach-Object Name)
+        } | ConvertTo-Json | Set-Content -LiteralPath $statePath
+    } catch { Write-Warning "Could not record the original Windows settings: $_" }
+}
 $process = Start-Process -FilePath $launcher -ArgumentList '-setup' -WorkingDirectory $root -Wait -PassThru -WindowStyle Hidden
 if ($process.ExitCode -ne 0) { throw "Desktop setup failed (exit code $($process.ExitCode))." }
 
@@ -46,11 +65,13 @@ Write-Host 'Child helper registered (Startup\annex-helper.cmd)'
 $ws = New-Object -ComObject WScript.Shell
 $oldLnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Child Session.lnk'
 if ((Test-Path -LiteralPath $oldLnk) -and $ws.CreateShortcut($oldLnk).TargetPath -like '*\ChildStream.exe') { Remove-Item -LiteralPath $oldLnk }
-$lnk = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Annex.lnk'))
-$lnk.TargetPath = $launcher
-$lnk.WorkingDirectory = $root
-$lnk.Description = 'Second desktop for game streaming'
-$lnk.Save()
+if (-not $NoShortcut) {
+    $lnk = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Annex.lnk'))
+    $lnk.TargetPath = $launcher
+    $lnk.WorkingDirectory = $root
+    $lnk.Description = 'Second desktop for game streaming'
+    $lnk.Save()
+}
 
 if ($RouteAudio) {
     # Child-session sound is played on the host by the RDP viewer (Annex.exe), while the child's

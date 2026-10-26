@@ -18,3 +18,11 @@ Sunshine/
 /DuoPOCLauncher.cs
 /uac-retry.ps1
 /annex-autostart.ps1
+
+# per-machine files
+display.cfg
+autostart.local.ps1
+setup-admin.log
+
+# third-party tools downloaded by setup.ps1 -RouteAudio
+tools/

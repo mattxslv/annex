@@ -92,6 +92,16 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
+// Centre the corner logo vertically in the header and keep it off the right edge.
+procedure InitializeWizard;
+var
+  Logo: TBitmapImage;
+begin
+  Logo := WizardForm.WizardSmallBitmapImage;
+  Logo.Top := (WizardForm.MainPanel.Height - Logo.Height) div 2;
+  Logo.Left := WizardForm.MainPanel.Width - Logo.Width - ScaleX(24);
+end;
+
 // Nothing is installed before the Installing page, so Cancel just closes without asking.
 procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
 begin

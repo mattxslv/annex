@@ -42,8 +42,8 @@ HEADER = (43, 43, 43)  # Inno Setup's dark wizard background
 
 
 def small(size):
-    # The mark sits centred at ~70% of the box, so it doesn't touch the header edges.
-    inner = round(size * 0.70)
+    # The installer positions the box itself (annex.iss InitializeWizard); a small inset keeps edges clean.
+    inner = round(size * 0.86)
     mark = logo.render(inner, logo.FULL)
     img = Image.new('RGB', (size, size), HEADER)
     img.paste(mark, ((size - inner) // 2, (size - inner) // 2), mark)

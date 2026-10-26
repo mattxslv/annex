@@ -21,7 +21,7 @@ try {
         $config = Join-Path $fixture 'config\sunshine.conf'
         Initialize-SunshineConfiguration -Path $config -ComputerName 'TestPC'
         $text = [IO.File]::ReadAllText($config)
-        Assert-True ($text -match 'sunshine_name = TestPC-Child') 'missing host name'
+        Assert-True ($text -match 'sunshine_name = TestPC-Annex') 'missing host name'
         Assert-True ($text -match 'port = 48989') 'missing isolated base port'
         Assert-True ($text -match 'capture = wgc') 'missing capture setting'
         Assert-True (-not $text.Contains([char]0)) 'config contains UTF-16 null bytes'

@@ -52,6 +52,11 @@ try {
     }
 
     if (Test-Path -LiteralPath $sunshineExe) {
+        # A fresh portable Sunshine has no config yet, and once the folder is locked the helper (not
+        # elevated) can't create one, so write the starting config first. An existing one is kept.
+        . (Join-Path $PSScriptRoot 'setup-common.ps1')
+        Initialize-SunshineConfiguration -Path (Join-Path $sunshineDir 'Sunshine\config\sunshine.conf') -ComputerName $env:COMPUTERNAME
+
         # The child host runs elevated only when users cannot change its files (see ElevationPolicy.cs).
         # Owner becomes Administrators so the user can't silently grant themselves write access back.
         & icacls $sunshineDir /setowner '*S-1-5-32-544' /T /C /Q | Out-Null

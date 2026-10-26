@@ -6,7 +6,7 @@ function Initialize-SunshineConfiguration {
         return
     }
     New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
-    $config = "sunshine_name = $ComputerName-Child`r`nport = 48989`r`ncapture = wgc`r`n"
+    $config = "sunshine_name = $ComputerName-Annex`r`nport = 48989`r`ncapture = wgc`r`n"
     [IO.File]::WriteAllText($Path, $config, (New-Object Text.UTF8Encoding($false)))
 }
 

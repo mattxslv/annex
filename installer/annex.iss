@@ -93,27 +93,33 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
-// Corner logo with even space around it: centred vertically in the header, and the gap to the
-// right edge equals the gap above and below. Inno re-lays out the header on page changes.
-procedure PlaceLogo;
+// Header inside the same margins as the page content: title and description start where the
+// content starts, and the corner logo ends the same distance from the right edge. Re-applied on
+// page changes because Inno lays the header out again.
+procedure PlaceHeader;
 var
   Logo: TBitmapImage;
-  Gap: Integer;
+  Inset: Integer;
 begin
+  Inset := WizardForm.InnerNotebook.Left + WizardForm.SelectTasksLabel.Left;
   Logo := WizardForm.WizardSmallBitmapImage;
-  Gap := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
-  Logo.Top := Gap;
-  Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - Gap;
+  Logo.Top := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
+  // +12: the bitmap has transparent padding, and the header panel is offset from the page edge.
+  Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - Inset + ScaleX(12);
+  WizardForm.PageNameLabel.Left := Inset;
+  WizardForm.PageDescriptionLabel.Left := Inset;
+  WizardForm.PageNameLabel.Width := Logo.Left - Inset - ScaleX(12);
+  WizardForm.PageDescriptionLabel.Width := WizardForm.PageNameLabel.Width;
 end;
 
 procedure InitializeWizard;
 begin
-  PlaceLogo;
+  PlaceHeader;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  PlaceLogo;
+  PlaceHeader;
 end;
 
 // Nothing is installed before the Installing page, so Cancel just closes without asking.

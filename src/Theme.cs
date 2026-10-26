@@ -250,14 +250,21 @@ sealed class FieldBox : Panel
     public readonly TextBox Box;
     public FieldBox(TextBox box)
     {
-        Box = box; Padding = new Padding(10, 7, 10, 5); Margin = box.Margin;
+        Box = box; Padding = new Padding(10, 6, 10, 6); Margin = box.Margin;
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         BackColor = Theme.Background;
-        box.BorderStyle = Theme.HighContrast ? BorderStyle.FixedSingle : BorderStyle.None; box.Dock = DockStyle.Fill; box.Margin = Padding.Empty;
+        box.BorderStyle = Theme.HighContrast ? BorderStyle.FixedSingle : BorderStyle.None; box.Dock = DockStyle.None; box.Margin = Padding.Empty;
         box.BackColor = Theme.Surface; box.ForeColor = Theme.Text;
         Controls.Add(box);
-        box.FontChanged += delegate { Height = box.PreferredHeight + Padding.Vertical; };
+        box.FontChanged += delegate { Height = box.PreferredHeight + Padding.Vertical; PerformLayout(); };
         Height = box.PreferredHeight + Padding.Vertical;
+    }
+    // Centre the text box vertically; password dots sit on the baseline, so lift them a pixel.
+    protected override void OnLayout(LayoutEventArgs e)
+    {
+        base.OnLayout(e);
+        int lift = Box.UseSystemPasswordChar || Box.PasswordChar != '\0' ? DeviceDpi / 96 : 0;
+        Box.SetBounds(Padding.Left, Math.Max(0, (Height - Box.Height) / 2 - lift), Math.Max(10, Width - Padding.Horizontal), Box.Height);
     }
     protected override void OnPaint(PaintEventArgs e)
     {

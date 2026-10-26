@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 
 static class LauncherPolicy
 {
@@ -12,8 +13,10 @@ static class LauncherPolicy
     public static HostSnapshot DiscoverySnapshot(HostDiscoveryResult found, bool attached) {
         if (found.Installations.Length == 0) {
             if (found.Diagnostics.Length != 0) return new HostSnapshot(HostState.Unknown, "Host discovery could not finish or verify an installation. Refresh or Browse to the host EXE. You can still start and use the Annex desktop.", 0);
-            return new HostSnapshot(HostState.Missing, "No streaming host detected. Install Sunshine, Apollo or VibePollo to stream; you can still start and use the Annex desktop.", 0);
+            return new HostSnapshot(HostState.Missing, "No streaming host detected. Install Sunshine (the portable zip works) or Apollo to stream; you can still start and use the Annex desktop.", 0);
         }
+        if (!found.Installations.Any(HostSelection.Usable))
+            return new HostSnapshot(HostState.Missing, "No host for the Annex desktop yet. VibePollo is your main host and can't run a second copy here. Install Sunshine (the portable zip works); your main host stays as it is.", 0);
         return new HostSnapshot(attached ? HostState.Checking : HostState.Waiting, attached ? "Choose the host to use in the Annex desktop." : "A streaming host was detected. Start the Annex desktop to choose and run its separate instance.", 0);
     }
     public static string SettingsFeedback(bool copied) { return copied ? "Host web UI URL copied. Paste it into a browser on your normal desktop." : "Browser requested. If nothing opens, copy the Host web UI URL into your browser."; }

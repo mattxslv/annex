@@ -98,7 +98,7 @@ sealed class LauncherWindow : Form
         var install = Tool("Install", "Install a host...", null);
         install.Click += delegate {
             var vendors = new ContextMenuStrip { Renderer = Theme.MenuRenderer(), BackColor = Theme.Surface, ForeColor = Theme.Text };
-            foreach (string name in new[] { "Sunshine", "Apollo", "VibePollo" }) { string vendor = name; vendors.Items.Add(vendor, null, (s, e) => { if (InstallRequested != null) InstallRequested(vendor); }); }
+            foreach (string name in new[] { "Sunshine", "Apollo" }) { string vendor = name; vendors.Items.Add(vendor, null, (s, e) => { if (InstallRequested != null) InstallRequested(vendor); }); }
             vendors.Closed += delegate { vendors.Dispose(); }; vendors.Show(install, new Point(0, install.Height));
         };
         foreach (var tool in new[] { refreshHosts, browseHost, install }) { tool.Dock = DockStyle.Fill; tool.AutoSize = false; tool.Height = 32; tool.Margin = new Padding(1, 0, 1, 0); }
@@ -296,7 +296,7 @@ static class LauncherPreview
         Directory.CreateDirectory(directory);
         foreach (HostState state in new[] { HostState.Stopped, HostState.Running, HostState.Unavailable, HostState.Checking, HostState.Missing })
         using (var form = Create(state)) {
-            if (state == HostState.Missing) form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Missing, "Install Sunshine, Apollo or VibePollo to stream. You can keep using the Annex desktop.", 0) });
+            if (state == HostState.Missing) form.SetDiscovery(new AgentReply { Status = new HostSnapshot(HostState.Missing, "Install Sunshine or Apollo to stream. You can keep using the Annex desktop.", 0) });
             if (state == HostState.Running) form.SetNotice(LauncherPolicy.SettingsFeedback(true));
             form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
             form.Show(); Application.DoEvents();

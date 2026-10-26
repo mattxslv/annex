@@ -68,12 +68,22 @@ static class HostDiscoveryTests
             Assert(choice.Selected.Id == first.Id && !choice.RequiresChoice, "new host silently changed selection");
         });
         check("selection prefers a child instance then managed host then an explicit choice", delegate {
-            var source = new Source(); source.Add(root, "a", "Apollo", null, "registry"); source.Add(root, "b", "VibePollo", null, "registry");
+            var source = new Source(); source.Add(root, "a", "Apollo", null, "registry"); source.Add(root, "b", "Sunshine", null, "registry");
             var hosts = HostDiscovery.Find(root, source).Installations;
             Assert(HostSelection.Choose(hosts, null, null).RequiresChoice, "multiple installations guessed");
             Assert(HostSelection.Choose(hosts, null, hosts[1].Id).Selected.Id == hosts[1].Id, "running child selection ignored");
             source.Add(root, "c", "Sunshine", null, "managed"); hosts = HostDiscovery.Find(root, source).Installations;
             Assert(HostSelection.Choose(hosts, "deleted selection", null).Selected.Source == "managed", "managed fallback ignored");
+        });
+        check("VibePollo (the main host) is never chosen for the Annex desktop", delegate {
+            var source = new Source(); source.Add(root, "v", "VibePollo", null, "registry");
+            var found = HostDiscovery.Find(root, source);
+            var only = HostSelection.Choose(found.Installations, found.Installations[0].Id, found.Installations[0].Id);
+            Assert(only.Selected == null && !only.RequiresChoice, "VibePollo was selected");
+            Assert(LauncherPolicy.DiscoverySnapshot(found, true).State == HostState.Missing, "a lone VibePollo should read as no usable host");
+            source.Add(root, "s", "Sunshine", null, "registry");
+            var both = HostDiscovery.Find(root, source).Installations;
+            Assert(HostSelection.Choose(both, null, null).Selected.Kind == HostKind.Sunshine, "Sunshine not preferred over VibePollo");
         });
         check("replacing a selected executable changes its installation identity", delegate {
             var source = new Source(); string path = source.Add(root, "a", "Apollo", null, "registry");

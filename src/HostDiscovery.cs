@@ -122,11 +122,13 @@ static class HostSelection
 {
     public static HostSelectionChoice Choose(HostInstallation[] candidates, string rememberedId, string runningChildId)
     {
-        candidates = candidates ?? new HostInstallation[0];
+        // VibePollo can't run a second instance inside Annex (it is usually the main host), so it is never chosen.
+        candidates = (candidates ?? new HostInstallation[0]).Where(Usable).ToArray();
         HostInstallation selected = candidates.FirstOrDefault(h => h.Id == rememberedId) ?? candidates.FirstOrDefault(h => h.Id == runningChildId) ?? candidates.FirstOrDefault(h => h.IsManaged);
         if (selected == null && candidates.Length == 1) selected = candidates[0];
         return new HostSelectionChoice { Selected = selected, RequiresChoice = selected == null && candidates.Length > 1 };
     }
+    public static bool Usable(HostInstallation host) { return host != null && host.Kind != HostKind.VibePollo; }
 }
 
 static class HostSelectionStore

@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 enum HostState { Waiting, Checking, Stopped, Starting, Running, Missing, Unknown, Unavailable, Error }
@@ -82,6 +83,11 @@ sealed class HostProcess
 
 sealed class HostController
 {
+    // True once the host's web UI (base port + 1) accepts connections. Replaceable for tests.
+    public static Func<int, bool> WebReady = port => {
+        try { return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e => e.Port == port + 1); }
+        catch (Exception) { return true; }
+    };
     readonly object gate = new object();
     readonly HostConfiguration config;
     readonly int sessionId;
@@ -144,6 +150,8 @@ sealed class HostController
                 {
                     if (profile != null && (process.ConfigPath != null ? !SamePath(process.ConfigPath, profile.ConfigPath) : receipt == null || !receipt.Matches(process, profile.Identity))) { unknown = true; continue; }
                     lastError = null;
+                    // Sunshine needs ~30 s (encoder probing) before its web UI and pairing answer.
+                    if (!WebReady(port)) return new HostSnapshot(HostState.Starting, "Sunshine is starting up. Settings and pairing are ready in about half a minute.", port);
                     return new HostSnapshot(HostState.Running, "The host is running in the Annex desktop. Streaming still depends on host capture and client settings." + (ElevationPolicy.LastLaunchNote ?? ""), port);
                 }
             }

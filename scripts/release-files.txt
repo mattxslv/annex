@@ -23,6 +23,7 @@ src/DesktopSetup.cs
 src/ElevationPolicy.cs
 src/HostDiscovery.cs
 src/HostProfiles.cs
+src/InstallWindow.cs
 src/AgentMessages.cs
 src/ChildApps.cs
 src/ChildAppWindow.cs

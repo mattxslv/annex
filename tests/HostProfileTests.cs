@@ -110,6 +110,8 @@ static class HostProfileTests
                 var host = new HostController(p, 7, () => processes, () => { throw new Exception("unused"); }); Assert(host.GetStatus().State == HostState.Stopped, "console accepted");
                 processes = new[] { new HostProcess(7, Path.Combine(f.Root, "other.exe"), false, 42, 123, p.ConfigPath) }; Assert(host.GetStatus().State == HostState.Stopped, "wrong executable accepted");
                 processes = new[] { new HostProcess(7, p.Installation.ExecutablePath, false, 42, 123, p.ConfigPath) }; Assert(host.GetStatus().State == HostState.Running && host.GetStatus().BasePort == p.BasePort, "verified config not accepted");
+                var ready = HostController.WebReady; HostController.WebReady = port => false;
+                try { Assert(host.GetStatus().State == HostState.Starting, "host offered settings before its web UI listens"); } finally { HostController.WebReady = ready; }
             }
         });
         check("owned launch receipt survives helper restart but rejects PID reuse and edited config", delegate {

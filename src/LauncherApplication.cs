@@ -242,19 +242,31 @@ sealed class LauncherApplication : IDisposable
     async void InstallSunshine() {
         if (installing || ending) return;
         if (!AnnexDialog.Ask(window, "Install Sunshine?", "Annex downloads the latest portable Sunshine from LizardByte on GitHub, checks it, and puts it in this Annex folder. It does not touch your main host. Windows asks once for administrator approval.", "Install", "Cancel", false)) return;
-        installing = true; window.SetNotice("Installing Sunshine... follow the PowerShell window.");
+        installing = true;
+        var progress = new InstallWindow("Installing Sunshine");
         try {
-            var start = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File \"" + Path.Combine(root, "scripts", "install-sunshine.ps1") + "\" -Pause") { UseShellExecute = true, WorkingDirectory = root };
-            using (var process = Process.Start(start)) {
-                if (process == null) throw new IOException("Windows did not start the installer.");
-                await Task.Run(() => process.WaitForExit());
-                if (window.IsDisposed) return;
-                window.SetNotice(process.ExitCode == 0 ? "Sunshine is installed. Checking the host..." : "Sunshine was not installed. See the PowerShell window for the reason.");
+            var start = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File \"" + Path.Combine(root, "scripts", "install-sunshine.ps1") + "\" -Report") {
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root
+            };
+            using (var process = new Process { StartInfo = start, EnableRaisingEvents = true }) {
+                process.OutputDataReceived += (s, e) => { if (e.Data != null && !progress.IsDisposed) progress.BeginInvoke(new Action(() => progress.Report(e.Data))); };
+                process.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) Program.Log("install-sunshine: " + e.Data); };
+                Task<int> finished = null;
+                progress.Shown += delegate {
+                    try { process.Start(); process.BeginOutputReadLine(); process.BeginErrorReadLine(); }
+                    catch (Exception ex) { progress.Finish(false, "Could not start PowerShell: " + ex.Message); return; }
+                    finished = Task.Run(() => { process.WaitForExit(); return process.ExitCode; });
+                    finished.ContinueWith(t => { if (!progress.IsDisposed) progress.BeginInvoke(new Action(() => { if (!progress.Finished) progress.Finish(t.Result == 0, t.Result == 0 ? "Sunshine is ready." : "The installer stopped unexpectedly; see launcher.log."); })); });
+                };
+                progress.ShowDialog(window);
+                if (finished != null) await finished;
             }
+            if (window.IsDisposed) return;
+            window.SetNotice("Checking the host...");
             if (StillConnected(child)) RequestHost(new AgentRequest { Command = "STATUS" }); else DiscoverBeforeConnect();
         }
         catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Could not start the Sunshine installer: " + ex.Message); }
-        finally { installing = false; }
+        finally { installing = false; progress.Dispose(); }
     }
     async void SetupRepair() {
         if (settingUp || ending) return; settingUp = true;

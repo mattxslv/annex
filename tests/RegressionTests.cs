@@ -59,6 +59,7 @@ static class RegressionTests
     [STAThread]
     public static int Main()
     {
+        HostController.WebReady = port => true; // fixtures have no real listener
         Check("default display", delegate { Settings(null, 1920, 1080, 0); });
         Check("custom resolution", delegate { Settings("2800x1272", 2800, 1272, 0); });
         Check("custom scale", delegate { Settings("2800x1272x225", 2800, 1272, 225); });

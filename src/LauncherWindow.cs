@@ -57,7 +57,7 @@ sealed class LauncherWindow : Form
 
         var brand = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, RowCount = 2, Margin = new Padding(6, 0, 0, 22), BackColor = Theme.Rail };
         brand.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); brand.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        var mark = new LogoMark { Size = new Size(44, 44), Margin = new Padding(0, 0, 12, 0) };
+        var mark = new LogoMark { Size = new Size(44, 44), MinimumSize = new Size(44, 44), Margin = new Padding(0, 0, 12, 0) };
         brand.Controls.Add(mark, 0, 0); brand.SetRowSpan(mark, 2);
         brand.Controls.Add(Label("Annex", 20, FontStyle.Bold, ink, 0, 0), 1, 0);
         brand.Controls.Add(Label("Second desktop for streaming", 8.5f, FontStyle.Regular, Theme.Faint, 0, 0), 1, 1);
@@ -89,16 +89,20 @@ sealed class LauncherWindow : Form
         startHost = Button("Start &Sunshine", true, (s, e) => Raise(StartHostRequested)); hostCard.Add(startHost);
         settings = Button("Open Sunshine settings", false, (s, e) => Raise(SettingsRequested)); hostCard.Add(settings);
         hostCard.Add(hostDetail);
-        var hostTools = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(-4, 0, 0, 0), BackColor = Theme.Card };
+        // Three equal, centred tool buttons under a divider.
+        hostCard.Add(new Panel { Height = 1, Dock = DockStyle.Top, BackColor = Theme.Border, Margin = new Padding(0, 2, 0, 6) });
+        var hostTools = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, ColumnCount = 3, RowCount = 1, Margin = Padding.Empty, BackColor = Theme.Card };
+        for (int c = 0; c < 3; c++) hostTools.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
         refreshHosts = Tool("Refresh", "Refresh hosts", (s, e) => Raise(RefreshHostsRequested));
-        browseHost = Tool("Browse...", "Browse host", (s, e) => Raise(BrowseHostRequested));
-        var install = Tool("Install a host...", "Install a host...", null);
+        browseHost = Tool("Browse", "Browse host", (s, e) => Raise(BrowseHostRequested));
+        var install = Tool("Install", "Install a host...", null);
         install.Click += delegate {
             var vendors = new ContextMenuStrip { Renderer = Theme.MenuRenderer(), BackColor = Theme.Surface, ForeColor = Theme.Text };
             foreach (string name in new[] { "Sunshine", "Apollo", "VibePollo" }) { string vendor = name; vendors.Items.Add(vendor, null, (s, e) => { if (InstallRequested != null) InstallRequested(vendor); }); }
             vendors.Closed += delegate { vendors.Dispose(); }; vendors.Show(install, new Point(0, install.Height));
         };
-        hostTools.Controls.Add(refreshHosts); hostTools.Controls.Add(browseHost); hostTools.Controls.Add(install);
+        foreach (var tool in new[] { refreshHosts, browseHost, install }) { tool.Dock = DockStyle.Fill; tool.AutoSize = false; tool.Height = 32; tool.Margin = new Padding(1, 0, 1, 0); }
+        hostTools.Controls.Add(refreshHosts, 0, 0); hostTools.Controls.Add(browseHost, 1, 0); hostTools.Controls.Add(install, 2, 0);
         hostCard.Add(hostTools);
         add(hostCard);
 
@@ -111,14 +115,12 @@ sealed class LauncherWindow : Form
         var repair = new ToolStripButton("Setup / repair") { AccessibleName = "Setup / repair", ForeColor = Theme.Muted }; repair.Click += (s, e) => Raise(GuideRequested); statusBar.Items.Add(repair);
 
         address = new TextBox { ReadOnly = true, Text = "Available after host check", Width = 210, AccessibleName = "Client pairing address" };
-        tips.SetToolTip(address, "Pair from Moonlight or a compatible client. Use this PC's LAN IP with this port if its name does not resolve.");
         copyAddress = Button("Copy address", false, (s, e) => {
             if (!HostConfiguration.IsValidPort(host.BasePort)) return;
             try { Clipboard.SetText(address.Text); SetNotice("Pairing address copied."); }
             catch (Exception) { SetNotice("Clipboard is busy. Select and copy the address manually."); }
         }); copyAddress.Dock = DockStyle.None;
         settingsAddress = new TextBox { ReadOnly = true, Text = "Available when Sunshine is running", Width = 250, AccessibleName = "Sunshine web UI URL" };
-        tips.SetToolTip(settingsAddress, "Open this on your normal PC desktop. You do not need Chrome inside the Annex desktop.");
         copySettings = Button("Copy settings URL", false, (s, e) => {
             string url = LauncherPolicy.SettingsUrl(host);
             if (!connected || url == null) return;
@@ -134,7 +136,7 @@ sealed class LauncherWindow : Form
         openApp = Button("Open &app", false, (s, e) => Raise(OpenAppRequested)); openApp.Dock = DockStyle.None; openApp.Margin = new Padding(0, 0, 8, 0); tools.Controls.Add(openApp);
         var tray = Button("Minimize to tray", false, (s, e) => Raise(MinimizeRequested)); tray.Dock = DockStyle.None; tray.Margin = new Padding(0, 0, 8, 0); tools.Controls.Add(tray);
         endSession = Button("End session...", false, (s, e) => Raise(EndSessionRequested)); endSession.Kind = ButtonKind.Danger; endSession.Tag = ButtonKind.Danger; endSession.Dock = DockStyle.None; endSession.Margin = Padding.Empty; tools.Controls.Add(endSession); right.Controls.Add(tools, 0, 0);
-        workspace = new Frame { Name = "DesktopWorkspace", AccessibleName = "Annex desktop workspace", Dock = DockStyle.Fill, BackColor = Color.FromArgb(10, 12, 16), Margin = Padding.Empty };
+        workspace = new Panel { Name = "DesktopWorkspace", AccessibleName = "Annex desktop workspace", Dock = DockStyle.Fill, BackColor = Color.FromArgb(10, 12, 16), Margin = Padding.Empty };
         if (Theme.HighContrast) workspace.BackColor = SystemColors.Window;
         right.Controls.Add(workspace, 0, 1);
         placeholder = new Panel { Dock = DockStyle.Fill, Padding = new Padding(44), BackColor = workspace.BackColor, AutoScroll = true };
@@ -239,7 +241,7 @@ sealed class LauncherWindow : Form
         hostTitle.Text = value.State == HostState.Running ? hostName + " running" : value.State == HostState.Stopped ? hostName + " is off" : value.State == HostState.Missing ? "No host detected" : value.State == HostState.Unavailable ? "Helper unavailable" : value.State == HostState.Starting ? "Starting " + hostName : value.State == HostState.Checking ? "Checking " + hostName : value.State == HostState.Error ? "Needs attention" : value.State == HostState.Unknown ? "Status unknown" : "Waiting for desktop";
         hostTitle.DotColor = value.State == HostState.Running ? Theme.Good : value.State == HostState.Error || value.State == HostState.Unavailable ? Theme.Bad : value.State == HostState.Starting || value.State == HostState.Checking || value.State == HostState.Unknown ? Theme.Warn : Theme.Faint;
         hostDetail.Text = value.Message.Length > 230 ? value.Message.Substring(0, 227) + "..." : value.Message;
-        hostDetail.AccessibleDescription = value.Message; tips.SetToolTip(hostDetail, value.Message);
+        hostDetail.AccessibleDescription = value.Message;
         address.Text = value.State == HostState.Running && HostConfiguration.IsValidPort(value.BasePort) ? (Preview ? "gaming-pc" : Environment.MachineName) + ":" + value.BasePort : "Available when host is running";
         settingsAddress.Text = LauncherPolicy.SettingsUrl(value) ?? "Available when host is running";
         pairingHelp.Text = LauncherPolicy.PairingInstructions(Preview ? "gaming-pc" : Environment.MachineName, value, hostName);
@@ -250,7 +252,7 @@ sealed class LauncherWindow : Form
         hasSelection = !string.IsNullOrEmpty(reply.SelectionId); hostName = "host"; hostChoice.BeginUpdate(); hostChoice.Items.Clear();
         foreach (AgentHost item in reply.Hosts) {
             var choice = new HostChoice { Id = item.Id, Text = item.Name + " · " + ShortLocation(item.Path) }; hostChoice.Items.Add(choice);
-            if (item.Id == reply.SelectionId) { hostChoice.SelectedItem = choice; hostName = item.Name; tips.SetToolTip(hostChoice, item.Path + " (" + item.Version + ")"); }
+            if (item.Id == reply.SelectionId) { hostChoice.SelectedItem = choice; hostName = item.Name; }
         }
         hostChoice.Visible = reply.Hosts.Length > 1; hostChoice.EndUpdate();
         startHost.Text = "Start " + hostName; startHost.AccessibleName = startHost.Text;

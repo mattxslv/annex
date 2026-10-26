@@ -209,7 +209,7 @@ sealed class LogoMark : Control
         float size = Math.Min(bounds.Width, bounds.Height), u = size / 64f;
         float ox = bounds.X + (bounds.Width - size) / 2, oy = bounds.Y + (bounds.Height - size) / 2;
         Func<float, float, float, float, RectangleF> R = (x, y, w, h) => new RectangleF(ox + x * u, oy + y * u, w * u, h * u);
-        bool small = size <= 32;
+        bool small = size <= 24; // simplified mark only at real icon sizes
         Color frame = Theme.HighContrast ? SystemColors.WindowText : Theme.Accent;
         using (var pen = new Pen(frame, (small ? 6 : 4) * u))
         using (var path = Theme.Rounded(R(4, 10, 56, 44), (small ? 9 : 8) * u)) g.DrawPath(pen, path);
@@ -265,26 +265,6 @@ sealed class FieldBox : Panel
         using (var path = Theme.Rounded(new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), 8 * DeviceDpi / 96f)) {
             using (var fill = new SolidBrush(Theme.Surface)) e.Graphics.FillPath(fill, path);
             using (var pen = new Pen(Box.Focused ? Theme.Accent : Theme.Border)) e.Graphics.DrawPath(pen, path);
-        }
-    }
-}
-
-// Rounded border around the desktop viewer area.
-sealed class Frame : Panel
-{
-    public Frame()
-    {
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        Padding = new Padding(1);
-    }
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        if (Theme.HighContrast) { base.OnPaint(e); return; }
-        e.Graphics.Clear(Parent != null ? Parent.BackColor : Theme.Background);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var path = Theme.Rounded(new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), 10 * DeviceDpi / 96f)) {
-            using (var fill = new SolidBrush(BackColor)) e.Graphics.FillPath(fill, path);
-            using (var pen = new Pen(Theme.Border)) e.Graphics.DrawPath(pen, path);
         }
     }
 }

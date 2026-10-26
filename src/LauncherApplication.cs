@@ -70,7 +70,7 @@ sealed class LauncherApplication : IDisposable
         };
         window.FormClosing += delegate { ending = true; wantReconnect = false; requests.Close(); timer.Stop(); tray.Visible = false; };
         window.Shown += delegate { DiscoverBeforeConnect(); };
-        timer.Tick += delegate { Poll(); };
+        timer.Tick += delegate { long t = clock.ElapsedMilliseconds; Poll(); long took = clock.ElapsedMilliseconds - t; if (took > 300) Program.Log("slow poll: " + took + " ms"); };
         bool enabled;
         bool known = Program.ChildSessionsEnabled(out enabled);
         setupReady = known && enabled;
@@ -129,7 +129,10 @@ sealed class LauncherApplication : IDisposable
             lastAttempt = clock.ElapsedMilliseconds; wantReconnect = true;
             window.SetSession("Connecting...", "Opening the second Windows desktop. Keep the viewer attached during your stream.", false, true);
             viewerShown = false; window.ShowGuidance("Connecting...", "Opening your Annex desktop. This takes a few seconds.");
+            window.Update();
+            long started = clock.ElapsedMilliseconds;
             RdpInputSettings.Connect(ocx, new Action<string>(message => { Program.Log(message); window.SetNotice(message); }));
+            Program.Log("connect call took " + (clock.ElapsedMilliseconds - started) + " ms");
         }
         catch (Exception ex) {
             wantReconnect = false; Program.Log("connect failed: " + ex);

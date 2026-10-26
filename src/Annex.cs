@@ -24,6 +24,7 @@ public class RdpBox : AxHost
 
 static class Program
 {
+    [DllImport("user32.dll")] static extern void DisableProcessWindowsGhosting();
     [DllImport("wtsapi32.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
     static extern bool WTSEnableChildSessions(bool enable);
     [DllImport("wtsapi32.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
@@ -123,6 +124,9 @@ static class Program
             return EnableChildSessions() ? 0 : 1;
         }
         if (command == "-check") { bool enabled; return WTSIsChildSessionsEnabled(out enabled) && enabled ? 0 : 1; }
+        // The RDP control can block the UI thread for a few seconds while the Annex desktop signs in;
+        // without this Windows swaps in a white "Not Responding" ghost window meanwhile.
+        DisableProcessWindowsGhosting();
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         try

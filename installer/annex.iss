@@ -93,13 +93,27 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
-// Inner pages: no corner logo. Inno's short dark header leaves it cramped against the top edge;
-// the welcome banner, window icon and taskbar carry the Annex mark instead.
+// Corner logo with even space around it: centred vertically in the header, and the gap to the
+// right edge equals the gap above and below. Inno re-lays out the header on page changes.
+procedure PlaceLogo;
+var
+  Logo: TBitmapImage;
+  Gap: Integer;
+begin
+  Logo := WizardForm.WizardSmallBitmapImage;
+  Gap := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
+  Logo.Top := Gap;
+  Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - Gap;
+end;
+
 procedure InitializeWizard;
 begin
-  WizardForm.WizardSmallBitmapImage.Visible := False;
-  WizardForm.PageNameLabel.Width := WizardForm.MainPanel.ClientWidth - WizardForm.PageNameLabel.Left * 2;
-  WizardForm.PageDescriptionLabel.Width := WizardForm.PageNameLabel.Width;
+  PlaceLogo;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  PlaceLogo;
 end;
 
 // Nothing is installed before the Installing page, so Cancel just closes without asking.

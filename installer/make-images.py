@@ -43,7 +43,7 @@ HEADER = (43, 43, 43)  # Inno Setup's dark wizard background
 
 def small(size):
     # The installer positions the box itself (annex.iss InitializeWizard); a small inset keeps edges clean.
-    inner = round(size * 0.86)
+    inner = round(size * 0.72)
     mark = logo.render(inner, logo.FULL)
     img = Image.new('RGB', (size, size), HEADER)
     img.paste(mark, ((size - inner) // 2, (size - inner) // 2), mark)

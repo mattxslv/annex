@@ -211,7 +211,25 @@ sealed class AgentClient
         }
         catch (UnauthorizedAccessException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, OutdatedHelper, 0), Diagnostic = "" }; }
         catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper upgrade/repair required. Restart this folder's Annex.exe -agent inside the Annex desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
-        catch (Exception ex) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the Annex desktop. " + ex.Message, 0) }; }
+        catch (Exception ex) {
+            if (ForeignHelperRunning(childSessionId)) return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, OutdatedHelper, 0), Diagnostic = "" };
+            return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the Annex desktop. " + ex.Message, 0) };
+        }
+    }
+    // The Annex desktop runs a helper from another Annex.exe (another copy or an older build): it
+    // listens on that copy's pipe, so this launcher would otherwise just wait.
+    static bool ForeignHelperRunning(uint childSessionId)
+    {
+        string own = System.Windows.Forms.Application.ExecutablePath;
+        foreach (var process in Process.GetProcessesByName("Annex"))
+            using (process) {
+                try {
+                    if (process.SessionId != childSessionId) continue;
+                    string path = HostNative.ProcessPath((uint)process.Id);
+                    if (path != null && !string.Equals(path, own, StringComparison.OrdinalIgnoreCase)) return true;
+                } catch (Exception) { }
+            }
+        return false;
     }
 }
 

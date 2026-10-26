@@ -45,6 +45,17 @@ static class AgentMessageTests
                 source.Candidate = null; Assert(service.Handle(new AgentRequest { Command = "START_HOST", SelectionId = replaced.SelectionId }).Status.State == HostState.Missing && launches == 0, "removed host launched");
             } finally { Directory.Delete(root, true); }
         });
+        check("helper answers when the only host is VibePollo (fresh PC with just the main host)", delegate {
+            string root = Path.Combine(Path.GetTempPath(), "annex-agent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            try {
+                string exe = Path.Combine(root, "sunshine.exe"); File.WriteAllText(exe, "fixture");
+                var source = new Source { Candidate = new HostCandidate(exe, HostKind.VibePollo, "known") };
+                var service = new AgentService(root, 7, source, path => new HostProcess[0], profile => { throw new Exception("must not launch"); }, () => true);
+                var reply = service.Handle(new AgentRequest { Command = "STATUS" });
+                var decoded = AgentCodec.DecodeReply(AgentCodec.Encode(reply));
+                Assert(decoded.Status.State == HostState.Missing, "lone VibePollo not reported as no usable host: " + decoded.Status.State);
+            } finally { Directory.Delete(root, true); }
+        });
         check("helper launch boundary refuses a non-child context", delegate {
             string root = Path.Combine(Path.GetTempPath(), "annex-agent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
             try { string exe = Path.Combine(root, "sunshine.exe"); File.WriteAllText(exe, "fixture"); var source = new Source { Candidate = new HostCandidate(exe, HostKind.Sunshine, "registry") }; int launches = 0;

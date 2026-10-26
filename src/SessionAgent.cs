@@ -183,6 +183,8 @@ static class HostNative
 
 sealed class AgentClient
 {
+    // The helper running in the Annex desktop is a different/older Annex.exe (e.g. Annex was updated while it ran).
+    public const string OutdatedHelper = "The Annex helper in this desktop is from a different or older Annex.exe. Use End session, then Start desktop to load the current helper.";
     readonly string root;
     public AgentClient(string baseDirectory) { root = baseDirectory; }
     public HostSnapshot Request(uint childSessionId, string command)
@@ -207,6 +209,7 @@ sealed class AgentClient
                 return AgentCodec.DecodeReply(PipeProtocol.ReadText(pipe, 2500));
             }
         }
+        catch (UnauthorizedAccessException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, OutdatedHelper, 0), Diagnostic = "" }; }
         catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper upgrade/repair required. Restart this folder's Annex.exe -agent inside the Annex desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
         catch (Exception ex) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the Annex desktop. " + ex.Message, 0) }; }
     }

@@ -204,7 +204,7 @@ sealed class LauncherApplication : IDisposable
                 selection = result.SelectionId; requests.Select(selection); selectedName = "host";
                 foreach (AgentHost item in result.Hosts) if (item.Id == selection) selectedName = item.Name;
                 // The helper starts with the new desktop sign-in; give it a minute before calling it unavailable.
-                if (result.Status.State == HostState.Unavailable && HelperStarting) { result.Status = new HostSnapshot(HostState.Checking, "Starting the Annex helper in the new desktop...", 0); result.Diagnostic = ""; }
+                if (result.Status.State == HostState.Unavailable && HelperStarting && result.Status.Message != AgentClient.OutdatedHelper) { result.Status = new HostSnapshot(HostState.Checking, "Starting the Annex helper in the new desktop...", 0); result.Diagnostic = ""; }
                 host = result.Status; window.SetDiscovery(result);
                 ask = (request.Command == "STATUS" || request.Command == "SELECT_HOST") && (appWindow == null || appWindow.IsDisposed) && prompts.ShouldAsk(requestedChild, selection, host.State, true);
             }

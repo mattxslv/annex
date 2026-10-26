@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mattxslv/annex/releases/latest"><b>Download</b></a> ·
+  <a href="https://github.com/mattxslv/annex/releases"><b>Download</b></a> ·
   <a href="#install">Install</a> ·
   <a href="#good-to-know">Good to know</a> ·
   <a href="docs/details.md">Details</a>
@@ -30,7 +30,7 @@ so you can play on the couch while someone else keeps using the PC, or you keep 
 
 ## Install
 
-1. Download **AnnexSetup.exe** from [Releases](https://github.com/mattxslv/annex/releases/latest) and run it.
+1. Download **AnnexSetup.exe** from [Releases](https://github.com/mattxslv/annex/releases) and run it.
    It isn't code-signed yet, so Windows shows *Windows protected your PC*: click **More info → Run anyway**.
 2. Keep **Download Sunshine** ticked. Windows asks twice for administrator approval during setup.
 3. Open **Annex**, click **Start desktop** and enter your Windows password once (not your PIN).

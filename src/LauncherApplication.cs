@@ -14,6 +14,8 @@ sealed class LauncherApplication : IDisposable
     readonly HostPromptPolicy prompts = new HostPromptPolicy();
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly Timer timer = new Timer { Interval = 2000 };
+    // Cheap 250 ms check of the viewer state only, so a dropped desktop is covered before the RDP control paints white.
+    readonly Timer watch = new Timer { Interval = 250 };
     readonly NotifyIcon tray;
     readonly ContextMenuStrip menu = new ContextMenuStrip();
     RdpBox rdp;
@@ -71,8 +73,9 @@ sealed class LauncherApplication : IDisposable
             if (window.WindowState != FormWindowState.Minimized) return;
             window.Hide(); tray.ShowBalloonTip(1500, "Annex", "Still attached. Double-click the tray icon to restore the viewer.", ToolTipIcon.Info);
         };
-        window.FormClosing += delegate { ending = true; wantReconnect = false; requests.Close(); timer.Stop(); tray.Visible = false; };
+        window.FormClosing += delegate { ending = true; wantReconnect = false; requests.Close(); timer.Stop(); watch.Stop(); tray.Visible = false; };
         window.Shown += delegate { DiscoverBeforeConnect(); };
+        watch.Tick += delegate { if (viewerShown && !ending && State() != 1) { viewerShown = false; window.ShowGuidance("One moment...", "Checking the Annex desktop."); } };
         timer.Tick += delegate { long t = clock.ElapsedMilliseconds; Poll(); long took = clock.ElapsedMilliseconds - t; if (took > 300) Program.Log("slow poll: " + took + " ms"); };
         bool enabled;
         bool known = Program.ChildSessionsEnabled(out enabled);
@@ -84,7 +87,7 @@ sealed class LauncherApplication : IDisposable
         }
     }
 
-    public int Run() { timer.Start(); Application.Run(window); return 0; }
+    public int Run() { timer.Start(); watch.Start(); Application.Run(window); return 0; }
     void Show() { window.Show(); window.WindowState = FormWindowState.Normal; window.Activate(); }
     bool TryOpen(string target)
     {
@@ -302,15 +305,17 @@ sealed class LauncherApplication : IDisposable
             window.SetNotice("The desktop connection changed. Review it and choose End session again."); return;
         }
         bool previousReconnect = wantReconnect; ending = true; wantReconnect = false; requests.Update(0, false); window.SetEnding(true);
+        // Cover the viewer first: it paints white while the desktop signs out.
+        viewerShown = false; window.ShowGuidance("Signing out...", "Closing the Annex desktop and the apps running in it."); window.Update();
         try {
             new ChildSessionController(Program.GetChildSessionId, Program.LogoffChildSession).EndConfirmedSession(approval.Child, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId());
             signingOut = true; signOutStarted = clock.ElapsedMilliseconds;
             window.SetNotice("Signing out the Annex desktop...");
         }
         catch (Exception ex) {
-            ending = false; wantReconnect = previousReconnect; window.SetEnding(false); Program.Log("signout failed: " + ex.Message);
+            ending = false; wantReconnect = previousReconnect; window.SetEnding(false); viewerShown = true; window.RevealViewer(); Program.Log("signout failed: " + ex.Message);
             AnnexDialog.Tell(window, "Could not sign out", ex.Message, true);
         }
     }
-    public void Dispose() { requests.Close(); timer.Dispose(); tray.Dispose(); menu.Dispose(); window.Dispose(); }
+    public void Dispose() { requests.Close(); timer.Dispose(); watch.Dispose(); tray.Dispose(); menu.Dispose(); window.Dispose(); }
 }

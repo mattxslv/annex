@@ -47,6 +47,7 @@ FinishedHeadingLabel=Annex is ready
 FinishedLabelNoIcons=Open Annex and choose Start desktop. The first time, it asks for your Windows password (not your PIN).
 FinishedLabel=Open Annex and choose Start desktop. The first time, it asks for your Windows password (not your PIN).
 ClickFinish=
+ClickNext=
 StatusRunProgram=Setting up Windows for Annex...
 
 [Tasks]
@@ -92,26 +93,13 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
-// Centre the corner logo vertically in the header and keep it off the right edge. Inno lays the
-// header out again when pages change, so this runs for every page.
-procedure PlaceLogo;
-var
-  Logo: TBitmapImage;
-begin
-  Logo := WizardForm.WizardSmallBitmapImage;
-  Logo.Anchors := [akTop, akRight];
-  Logo.Top := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
-  Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - ScaleX(24);
-end;
-
+// Inner pages: no corner logo. Inno's short dark header leaves it cramped against the top edge;
+// the welcome banner, window icon and taskbar carry the Annex mark instead.
 procedure InitializeWizard;
 begin
-  PlaceLogo;
-end;
-
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  PlaceLogo;
+  WizardForm.WizardSmallBitmapImage.Visible := False;
+  WizardForm.PageNameLabel.Width := WizardForm.MainPanel.ClientWidth - WizardForm.PageNameLabel.Left * 2;
+  WizardForm.PageDescriptionLabel.Width := WizardForm.PageNameLabel.Width;
 end;
 
 // Nothing is installed before the Installing page, so Cancel just closes without asking.

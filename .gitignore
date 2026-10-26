@@ -27,3 +27,5 @@ setup-admin.log
 
 # third-party tools downloaded by setup.ps1 -RouteAudio
 tools/
+
+__pycache__/

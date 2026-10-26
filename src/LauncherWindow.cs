@@ -227,7 +227,8 @@ sealed class LauncherWindow : Form
     }
     public void SetBusy(bool value) { busy = value; UpdateActions(); }
     public void SetEnding(bool value) { ending = value; UpdateActions(); }
-    public void SetNotice(string message) { footer.Text = Preview ? "Preview mode - " + message : message; }
+    public bool LabelPreview = true; // README screenshots turn the "Preview mode" prefix off
+    public void SetNotice(string message) { footer.Text = Preview && LabelPreview ? "Preview mode - " + message : message; }
     public void SetSession(string title, string detail, bool attached, bool ready)
     {
         connected = attached; setupReady = ready; sessionTitle.Text = title; sessionDetail.Text = detail;
@@ -292,6 +293,42 @@ static class LauncherPreview
         form.MinimizeRequested += delegate { form.WindowState = FormWindowState.Minimized; };
         return form;
     }
+    // README screenshots: real windows, example data, window contents only (no title bar).
+    public static int CaptureScreens(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        Action<Form, string> save = (window, name) => {
+            Application.DoEvents();
+            using (var full = new Bitmap(window.Width, window.Height)) {
+                window.DrawToBitmap(full, new Rectangle(Point.Empty, window.Size));
+                Point origin = window.PointToScreen(Point.Empty);
+                var client = new Rectangle(origin.X - window.Left, origin.Y - window.Top, window.ClientSize.Width, window.ClientSize.Height);
+                using (var crop = full.Clone(client, full.PixelFormat)) crop.Save(Path.Combine(directory, name), ImageFormat.Png);
+            }
+        };
+        using (var form = Create(HostState.Running)) {
+            form.Text = "Annex"; form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
+            form.ClientSize = new Size(1180, 720);
+            form.SetSession("Connected", "The Annex desktop is attached. You can keep using your physical desktop.", true, true);
+            form.SetHost(new HostSnapshot(HostState.Running, "Sunshine is running in the Annex desktop. Pair your phone, tablet or TV with this host.", 48989));
+            form.ShowGuidance("Your stream's own desktop", "Games and apps run here while you keep using your normal desktop. Sunshine streams this one to your phone, tablet or TV.");
+            form.LabelPreview = false; form.SetNotice("Ready. Your physical desktop stays available.");
+            form.Show(); save(form, "launcher.png");
+            ((Button)form.Controls.Find("PairingSteps", true)[0]).PerformClick();
+            save(form, "pairing.png");
+            form.Close();
+        }
+        using (var apps = new ChildAppWindow()) {
+            apps.ShowInTaskbar = false; apps.StartPosition = FormStartPosition.Manual; apps.Location = new Point(-20000, -20000);
+            apps.SetApps(new[] {
+                new AgentApp { Id = new string('a', 64), Name = "Chrome", Path = @"C:\Program Files\Google\Chrome\Application\chrome.exe" },
+                new AgentApp { Id = new string('b', 64), Name = "Edge", Path = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" },
+                new AgentApp { Id = new string('c', 64), Name = "Steam", Path = @"C:\Program Files (x86)\Steam\steam.exe" } }, "");
+            apps.Show(); save(apps, "apps.png"); apps.Close();
+        }
+        return 0;
+    }
+
     public static int Capture(string directory)
     {
         Directory.CreateDirectory(directory);

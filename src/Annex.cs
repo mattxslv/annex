@@ -168,6 +168,7 @@ static class Program
         try
         {
             if (command == "-capture-preview" && args.Length == 2) return LauncherPreview.Capture(args[1]);
+            if (command == "-capture-screens" && args.Length == 2) return LauncherPreview.CaptureScreens(args[1]);
             if (command == "-preview")
             {
                 HostState state = HostState.Stopped;

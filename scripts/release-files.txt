@@ -5,8 +5,7 @@ app.ico
 app.manifest
 .gitignore
 .github/workflows/checks.yml
-docs/compatibility.md
-docs/pairing.md
+docs/details.md
 scripts/build.ps1
 scripts/setup.ps1
 scripts/setup-common.ps1

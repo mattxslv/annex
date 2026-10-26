@@ -209,17 +209,16 @@ sealed class LogoMark : Control
         float size = Math.Min(bounds.Width, bounds.Height), u = size / 64f;
         float ox = bounds.X + (bounds.Width - size) / 2, oy = bounds.Y + (bounds.Height - size) / 2;
         Func<float, float, float, float, RectangleF> R = (x, y, w, h) => new RectangleF(ox + x * u, oy + y * u, w * u, h * u);
-        bool small = size <= 24; // simplified mark only at real icon sizes
+        bool small = size <= 32; // same mark, slightly thicker strokes so the lines stay visible
         Color frame = Theme.HighContrast ? SystemColors.WindowText : Theme.Accent;
-        using (var pen = new Pen(frame, (small ? 6 : 4) * u))
-        using (var path = Theme.Rounded(R(4, 10, 56, 44), (small ? 9 : 8) * u)) g.DrawPath(pen, path);
-        if (!small)
-            using (var line = new SolidBrush(Color.FromArgb(140, frame))) {
-                using (var p = Theme.Rounded(R(10, 16, 14, 3), 1.5f * u)) g.FillPath(line, p);
-                using (var p = Theme.Rounded(R(10, 22, 9, 3), 1.5f * u)) g.FillPath(line, p);
-            }
-        RectangleF inner = small ? R(27, 27, 27, 21) : R(30, 30, 24, 18);
-        using (var path = Theme.Rounded(inner, (small ? 5 : 4) * u))
+        using (var pen = new Pen(frame, (small ? 5 : 4) * u))
+        using (var path = Theme.Rounded(R(4, 10, 56, 44), 8 * u)) g.DrawPath(pen, path);
+        using (var line = new SolidBrush(Color.FromArgb(small ? 190 : 140, frame))) {
+            using (var p = Theme.Rounded(small ? R(10, 16, 15, 4) : R(10, 16, 14, 3), (small ? 2 : 1.5f) * u)) g.FillPath(line, p);
+            using (var p = Theme.Rounded(small ? R(10, 23, 10, 4) : R(10, 22, 9, 3), (small ? 2 : 1.5f) * u)) g.FillPath(line, p);
+        }
+        RectangleF inner = R(30, 30, 24, 18);
+        using (var path = Theme.Rounded(inner, 4 * u))
         using (Brush fill = Theme.HighContrast ? (Brush)new SolidBrush(SystemColors.Highlight) : new LinearGradientBrush(inner, Theme.Accent, Theme.Accent2, LinearGradientMode.ForwardDiagonal))
             g.FillPath(fill, path);
     }

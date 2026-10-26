@@ -1,7 +1,7 @@
 """Renders the Annex logo (picture-in-picture) to app.ico, PNGs and SVGs.
 
 Run from the repo root:  python assets/make-logo.py
-Sizes up to 32 px use a simplified mark (no title lines, thicker frame) so it stays crisp in the tray.
+Sizes up to 32 px use the same mark with slightly thicker strokes so the lines stay visible in the taskbar/tray.
 """
 from pathlib import Path
 from PIL import Image, ImageDraw
@@ -11,8 +11,8 @@ FRAME = (0x89, 0xB4, 0xFA)
 GRAD_A, GRAD_B = (0x89, 0xB4, 0xFA), (0x7D, 0x82, 0xD9)
 
 # Geometry on a 64-unit canvas: (x, y, w, h, radius)
-FULL = dict(frame=(4, 10, 56, 44, 8), stroke=4, inner=(30, 30, 24, 18, 4), lines=[(10, 16, 14, 3), (10, 22, 9, 3)])
-SMALL = dict(frame=(4, 10, 56, 44, 9), stroke=6, inner=(27, 27, 27, 21, 5), lines=[])
+FULL = dict(frame=(4, 10, 56, 44, 8), stroke=4, inner=(30, 30, 24, 18, 4), lines=[(10, 16, 14, 3), (10, 22, 9, 3)], line_alpha=140)
+SMALL = dict(frame=(4, 10, 56, 44, 8), stroke=5, inner=(30, 30, 24, 18, 4), lines=[(10, 16, 15, 4), (10, 23, 10, 4)], line_alpha=190)
 
 
 def render(size, spec, ss=16):
@@ -24,7 +24,7 @@ def render(size, spec, ss=16):
     d.rounded_rectangle([(x - half) * s, (y - half) * s, (x + w + half) * s, (y + h + half) * s], radius=(r + half) * s,
                         outline=FRAME, width=round(spec['stroke'] * s))
     for lx, ly, lw, lh in spec['lines']:
-        d.rounded_rectangle([lx * s, ly * s, (lx + lw) * s, (ly + lh) * s], radius=lh / 2 * s, fill=FRAME + (140,))
+        d.rounded_rectangle([lx * s, ly * s, (lx + lw) * s, (ly + lh) * s], radius=lh / 2 * s, fill=FRAME + (spec['line_alpha'],))
     # gradient-filled inner window
     x, y, w, h, r = spec['inner']
     box = [round(x * s), round(y * s), round((x + w) * s), round((y + h) * s)]

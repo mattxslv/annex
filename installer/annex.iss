@@ -24,7 +24,12 @@ OutputBaseFilename=AnnexSetup-{#AppVersion}
 SetupIconFile=..\app.ico
 UninstallDisplayIcon={app}\Annex.exe
 UninstallDisplayName=Annex
-WizardStyle=modern dynamic
+WizardStyle=modern dark
+WizardImageFile=wizard-100.bmp,wizard-200.bmp
+WizardSmallImageFile=small-100.bmp,small-200.bmp
+WizardImageStretch=no
+DisableWelcomePage=no
+DisableReadyPage=yes
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -32,10 +37,21 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 CloseApplications=yes
 
+[Messages]
+WelcomeLabel1=Welcome to Annex
+WelcomeLabel2=Annex gives your PC a second Windows desktop for streaming games and apps to your phone, tablet or TV, while you keep using this one.%n%nSetup installs Annex for your Windows account and prepares Windows for it. Windows will ask twice for administrator approval.
+SelectTasksDesc=Choose what to set up
+SelectTasksLabel2=You can install Sunshine later from inside Annex too.
+FinishedHeadingLabel=Annex is ready
+FinishedLabelNoIcons=Open Annex and choose Start desktop. The first time, it asks for your Windows password (not your PIN).
+FinishedLabel=Open Annex and choose Start desktop. The first time, it asks for your Windows password (not your PIN).
+ClickFinish=
+StatusRunProgram=Setting up Windows for Annex...
+
 [Tasks]
-Name: "sunshine"; Description: "Download Sunshine (portable) to stream the Annex desktop"; GroupDescription: "Streaming host:"
-Name: "audio"; Description: "Play the Annex desktop's sound only on your streaming device (needs Steam Streaming Speakers)"; GroupDescription: "Streaming host:"; Flags: unchecked
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
+Name: "sunshine"; Description: "Download Sunshine for the Annex desktop (recommended, about 36 MB)"; GroupDescription: "Streaming"
+Name: "audio"; Description: "Play its sound only on your phone, tablet or TV (needs Steam's audio driver)"; GroupDescription: "Streaming"; Flags: unchecked
+Name: "desktopicon"; Description: "Add an Annex shortcut to the desktop"; GroupDescription: "Shortcuts"
 
 [Files]
 Source: "..\Annex.exe"; DestDir: "{app}"; Flags: ignoreversion

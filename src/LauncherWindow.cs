@@ -251,10 +251,12 @@ sealed class LauncherWindow : Form
     public void SetDiscovery(AgentReply reply) {
         hasSelection = !string.IsNullOrEmpty(reply.SelectionId); hostName = "host"; hostChoice.BeginUpdate(); hostChoice.Items.Clear();
         foreach (AgentHost item in reply.Hosts) {
+            // VibePollo can't run a second instance inside Annex (it is usually the main host), so it isn't offered.
+            if (item.Name == "VibePollo" && item.Id != reply.SelectionId) continue;
             var choice = new HostChoice { Id = item.Id, Text = item.Name + " · " + ShortLocation(item.Path) }; hostChoice.Items.Add(choice);
             if (item.Id == reply.SelectionId) { hostChoice.SelectedItem = choice; hostName = item.Name; }
         }
-        hostChoice.Visible = reply.Hosts.Length > 1; hostChoice.EndUpdate();
+        hostChoice.Visible = hostChoice.Items.Count > 1; hostChoice.EndUpdate();
         startHost.Text = "Start " + hostName; startHost.AccessibleName = startHost.Text;
         settings.Text = "Open " + hostName + " settings"; settings.AccessibleName = settings.Text; settingsAddress.AccessibleName = hostName == "host" ? "Host web UI URL" : hostName + " web UI URL";
         SetHost(reply.Status); if (!string.IsNullOrEmpty(reply.Diagnostic)) SetNotice(reply.Diagnostic);

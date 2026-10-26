@@ -98,7 +98,8 @@ sealed class LauncherWindow : Form
         var install = Tool("Install", "Install a host...", null);
         // Built once and reused: disposing the menu in its Closed event crashed when an item was clicked.
         var vendors = new ContextMenuStrip { Renderer = Theme.MenuRenderer(), BackColor = Theme.Surface, ForeColor = Theme.Text };
-        foreach (string name in new[] { "Sunshine", "Apollo" }) { string vendor = name; vendors.Items.Add(vendor, null, (s, e) => { if (InstallRequested != null) InstallRequested(vendor); }); }
+        vendors.Items.Add("Sunshine (download and set up)", null, (s, e) => { if (InstallRequested != null) InstallRequested("Sunshine"); });
+        vendors.Items.Add("Apollo (open download page)", null, (s, e) => { if (InstallRequested != null) InstallRequested("Apollo"); });
         Disposed += delegate { vendors.Dispose(); };
         install.Click += delegate { vendors.Show(install, new Point(0, install.Height)); };
         foreach (var tool in new[] { refreshHosts, browseHost, install }) { tool.Dock = DockStyle.Fill; tool.AutoSize = false; tool.Height = 32; tool.Margin = new Padding(1, 0, 1, 0); }

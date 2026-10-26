@@ -7,8 +7,7 @@ other device. Chrome inside the child desktop is optional for pairing.
 ## Start the desktop
 
 1. Keep `Annex.exe` in a permanent, private, writable installation folder.
-   On this development PC the installed copy is
-   `C:\Users\Admin\Downloads\Annex-portable\Annex.exe`.
+   For example `C:\Annex\Annex.exe`.
    Repository/dist EXEs are build outputs, not that installation's helper.
 2. Open the installed EXE. For a new Windows installation, select **Setup / repair**
    and handle elevation yourself. Setup is contained in the EXE; source files,

@@ -65,7 +65,8 @@ sealed class LauncherApplication : IDisposable
         window.BrowseHostRequested += delegate { BrowseHost(); };
         window.OpenAppRequested += delegate { OpenApps(); };
         window.InstallRequested += name => {
-            string url = name == "Sunshine" ? "https://github.com/LizardByte/Sunshine/releases" : name == "Apollo" ? "https://github.com/ClassicOldSong/Apollo/releases" : name == "VibePollo" ? "https://github.com/Nonary/Vibepollo/releases" : null;
+            if (name == "Sunshine" && File.Exists(Path.Combine(root, "scripts", "install-sunshine.ps1"))) { InstallSunshine(); return; }
+            string url = name == "Sunshine" ? "https://github.com/LizardByte/Sunshine/releases" : name == "Apollo" ? "https://github.com/ClassicOldSong/Apollo/releases" : null;
             if (url != null) TryOpen(url);
         };
         window.EndSessionRequested += delegate { EndSession(); };
@@ -234,6 +235,26 @@ sealed class LauncherApplication : IDisposable
             window.SetDiscovery(new AgentReply { Status = LauncherPolicy.DiscoverySnapshot(found, false), Diagnostic = HostInstallation.Limit(string.Join(" ", found.Diagnostics), 512) });
             string registered = InstallationIdentity.Load(); if (registered != null && !InstallationIdentity.SameRoot(registered, root)) window.SetNotice("The helper is registered for " + registered + ". Open that folder's EXE, or use Setup / repair to register this folder.");
         } catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Host discovery did not finish: " + ex.Message); }
+    }
+    // Downloads portable Sunshine via scripts\install-sunshine.ps1 in a visible window (the EXE itself
+    // never downloads or runs downloaded programs), then refreshes the host card.
+    bool installing;
+    async void InstallSunshine() {
+        if (installing || ending) return;
+        if (!AnnexDialog.Ask(window, "Install Sunshine?", "Annex downloads the latest portable Sunshine from LizardByte on GitHub, checks it, and puts it in this Annex folder. It does not touch your main host. Windows asks once for administrator approval.", "Install", "Cancel", false)) return;
+        installing = true; window.SetNotice("Installing Sunshine... follow the PowerShell window.");
+        try {
+            var start = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File \"" + Path.Combine(root, "scripts", "install-sunshine.ps1") + "\" -Pause") { UseShellExecute = true, WorkingDirectory = root };
+            using (var process = Process.Start(start)) {
+                if (process == null) throw new IOException("Windows did not start the installer.");
+                await Task.Run(() => process.WaitForExit());
+                if (window.IsDisposed) return;
+                window.SetNotice(process.ExitCode == 0 ? "Sunshine is installed. Checking the host..." : "Sunshine was not installed. See the PowerShell window for the reason.");
+            }
+            if (StillConnected(child)) RequestHost(new AgentRequest { Command = "STATUS" }); else DiscoverBeforeConnect();
+        }
+        catch (Exception ex) { if (!window.IsDisposed) window.SetNotice("Could not start the Sunshine installer: " + ex.Message); }
+        finally { installing = false; }
     }
     async void SetupRepair() {
         if (settingUp || ending) return; settingUp = true;

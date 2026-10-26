@@ -11,6 +11,7 @@ scripts/build.ps1
 scripts/setup.ps1
 scripts/setup-common.ps1
 scripts/setup-admin.ps1
+scripts/install-sunshine.ps1
 scripts/annex-autostart.ps1
 scripts/test.ps1
 scripts/package.ps1

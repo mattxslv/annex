@@ -13,20 +13,31 @@ cases](docs/compatibility.md).
 
 1. Put the repository (or portable ZIP) in a permanent folder owned by your
    Windows user. For an update, replace the files and preserve runtime files.
-2. Run `.\scripts\setup.ps1` from PowerShell and approve elevation yourself. It
-   builds **Annex.exe**, enables child sessions, sets the RDP/compositor
-   preferences, keeps RDP closed to the network (Remote Desktop firewall rules
-   disabled; `-KeepRemoteDesktop` skips this), registers the child helper as a
-   per-user Startup `annex-helper.cmd`, and adds an **Annex** desktop shortcut.
-   If a portable Sunshine is in `Sunshine\`, its folder becomes admin-write only
-   (see below). `-RouteAudio` also sends Annex's own audio to the silent Steam
-   Streaming Speakers so child sound plays only on the client. No streaming host
-   is downloaded. **Setup / repair** in the app re-applies the Windows settings.
+2. Open PowerShell (not as administrator) in that folder and run:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -InstallSunshine
+   ```
+
+   (Windows blocks `.\scripts\setup.ps1` directly unless scripts are allowed.) Approve
+   the administrator prompts. Setup builds **Annex.exe**, enables child sessions, sets the
+   RDP/compositor preferences, keeps RDP closed to the network (Remote Desktop firewall
+   rules disabled; `-KeepRemoteDesktop` skips this), registers the helper as a per-user
+   Startup `annex-helper.cmd`, and adds an **Annex** desktop shortcut.
+   `-InstallSunshine` downloads the latest portable Sunshine from LizardByte's GitHub
+   releases (checked against GitHub's SHA-256 digest) into `Sunshine\` and makes that
+   folder admin-write only (see below). Leave it out if you use another host or add
+   Sunshine later. `-RouteAudio` also sends Annex's own audio to the silent Steam
+   Streaming Speakers so the Annex desktop's sound plays only on the client.
+   **Setup / repair** in the app re-applies the Windows settings.
 3. Open **Annex** and choose **Start desktop**. Enter your Windows account password if asked; a
-   Windows Hello PIN is not that password. Credentials use user-scoped DPAPI in
-   `cred.bin`; the tray menu can forget them.
-4. **No host detected** does not prevent using the desktop. **Install a host...**
-   opens vendor release pages. You can install software inside the child too.
+   Windows Hello PIN is not that password. Annex checks it with Windows and saves it
+   (user-scoped DPAPI, `cred.bin`) only after it signs in; the tray menu can forget it.
+4. **No host detected** does not prevent using the desktop. **Install → Sunshine**
+   downloads and sets up portable Sunshine for you (same as `-InstallSunshine`);
+   **Install → Apollo** opens Apollo's release page. Don't use the Sunshine *installer*
+   if you already run a main host such as Vibepollo or Apollo: it adds a system service
+   on the same ports. Vibepollo itself can't run a second copy inside Annex.
 5. After attaching, choose the host if several are found. **Browse...** handles
    portable/nonstandard locations; **Refresh** detects later installations.
    Confirm **Start [host]** to start it inside the child. Handle UAC there yourself.
@@ -99,7 +110,10 @@ its apps. Recovery never automatically signs out a child or closes its games.
 exact child reported by Windows and closes its apps. Exiting only the viewer does
 not sign out, but can interrupt capture. Keep `launcher.log`/`autostart.log` private.
 
-Optional `display.cfg` beside the EXE accepts `widthxheight` or
+**Resolution and scale.** By default the Annex desktop is 1920x1080 at 100%, which can look
+small on a phone or tablet. Match your client by creating `display.cfg` next to Annex.exe
+with one line, e.g. `2560x1600x200` for a 2560x1600 tablet at 200% scale, then Reconnect.
+`display.cfg` accepts `widthxheight` or
 `widthxheightxscale`, such as `2800x1272x225`. Dimensions: 200-8192; scale: 100-500
 percent, or 0 for no override. Invalid input falls back atomically to 1920x1080
 without a scale override. Platform/GPU limits can be stricter.

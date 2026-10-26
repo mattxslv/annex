@@ -7,12 +7,15 @@
 .PARAMETER RouteAudio
   Download NirSoft svcl and route the viewer's audio to the silent Steam Streaming Speakers,
   so child-desktop sound plays only on the client.
+.PARAMETER InstallSunshine
+  Also download the latest portable Sunshine into .\Sunshine (scripts\install-sunshine.ps1).
 .NOTES
-  Run from PowerShell in the repo root:  .\scripts\setup.ps1
+  Run from PowerShell in the repo root:
+    powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1 -InstallSunshine
   Windows asks for administrator approval. Hosts are optional; an existing Sunshine config is kept.
 #>
 [CmdletBinding()]
-param([switch]$KeepRemoteDesktop, [switch]$RouteAudio)
+param([switch]$KeepRemoteDesktop, [switch]$RouteAudio, [switch]$InstallSunshine)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 & (Join-Path $PSScriptRoot 'build.ps1')
@@ -20,6 +23,11 @@ $launcher = Join-Path $root 'Annex.exe'
 if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw 'Annex.exe is missing after build.' }
 $process = Start-Process -FilePath $launcher -ArgumentList '-setup' -WorkingDirectory $root -Wait -PassThru -WindowStyle Hidden
 if ($process.ExitCode -ne 0) { throw "Desktop setup failed (exit code $($process.ExitCode))." }
+
+if ($InstallSunshine) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'install-sunshine.ps1') -SkipAdmin
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'Sunshine was not installed; Annex works without it. Use Install > Sunshine in the app later.' }
+}
 
 # Firewall, Sunshine folder protection (admin)
 $adminArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSScriptRoot\setup-admin.ps1`"")

@@ -59,7 +59,9 @@ sealed class HostPromptPolicy
 static class RdpInputSettings
 {
     public static string Apply(dynamic client) {
-        try { client.SecuredSettings2.KeyboardHookMode = 1; return null; }
+        // 2 = Windows key shortcuts go to the Annex desktop only in full screen, which the viewer never uses,
+        // so Win+Shift+S, Win+D etc. keep working on the normal desktop.
+        try { client.SecuredSettings2.KeyboardHookMode = 2; return null; }
         catch (Exception ex) { return HostInstallation.Limit("Remote keyboard routing could not be set. Use Alt+Home for the Annex Start menu; click the companion column to leave the viewer. " + ex.Message, 512); }
     }
     public static void Connect(dynamic client, Action<string> report) { string diagnostic = Apply(client); if (diagnostic != null) report(diagnostic); client.Connect(); }

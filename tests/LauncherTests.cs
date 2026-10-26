@@ -257,7 +257,7 @@ static class LauncherTests
     public sealed class InputClient {
         public InputSettings SecuredSettings2 { get; private set; } public int Connections { get; private set; }
         public InputClient() { SecuredSettings2 = new InputSettings(); }
-        public void Connect() { if (SecuredSettings2.KeyboardHookMode != 1) throw new Exception("Connect before keyboard routing"); Connections++; SecuredSettings2.KeyboardHookMode = 0; }
+        public void Connect() { if (SecuredSettings2.KeyboardHookMode != 2) throw new Exception("Connect before keyboard routing"); Connections++; SecuredSettings2.KeyboardHookMode = 0; }
     }
     public sealed class UnsupportedInputClient { public void Connect() { } }
 }

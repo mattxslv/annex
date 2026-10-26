@@ -74,7 +74,7 @@ sealed class LauncherWindow : Form
         var hostCard = new CardPanel { Margin = Padding.Empty };
         hostCard.Add(Section("STREAMING HOST"));
         hostTitle = Status("Waiting for desktop"); hostCard.Add(hostTitle);
-        hostChoice = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, DropDownWidth = 520, AccessibleName = "Streaming host installation", Margin = new Padding(0, 4, 0, 10), Visible = false };
+        hostChoice = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, AccessibleName = "Streaming host installation", Margin = new Padding(0, 4, 0, 10), Visible = false };
         if (!Theme.HighContrast) {
             hostChoice.BackColor = Theme.Surface; hostChoice.ForeColor = Theme.Text;
             hostChoice.DrawMode = DrawMode.OwnerDrawFixed; hostChoice.ItemHeight = 24; Theme.DarkCombo(hostChoice);

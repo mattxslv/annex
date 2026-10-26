@@ -31,6 +31,8 @@ static class Theme
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr hwnd, string app, string id);
 
     // Dark title bar (Windows 10 2004+/11) and caption color matching the window (Windows 11).
+    // The window stays cloaked until every control has painted once, so it never shows a grey or
+    // white frame while the dark theme is still drawing.
     public static void DarkChrome(Form form)
     {
         if (HighContrast) return;
@@ -38,8 +40,22 @@ static class Theme
             try {
                 int on = 1; DwmSetWindowAttribute(form.Handle, 20, ref on, 4);
                 int caption = Background.R | Background.G << 8 | Background.B << 16; DwmSetWindowAttribute(form.Handle, 35, ref caption, 4);
+                int cloak = 1; DwmSetWindowAttribute(form.Handle, 13, ref cloak, 4);
             } catch (Exception) { }
         };
+        form.Shown += delegate {
+            PaintNow(form);
+            form.BeginInvoke(new Action(delegate {
+                PaintNow(form);
+                try { int cloak = 0; DwmSetWindowAttribute(form.Handle, 13, ref cloak, 4); } catch (Exception) { }
+            }));
+        };
+    }
+
+    static void PaintNow(Control control)
+    {
+        control.Update();
+        foreach (Control child in control.Controls) PaintNow(child);
     }
 
     // Dark scrollbars for scrollable panels, text boxes and lists.

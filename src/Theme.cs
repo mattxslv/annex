@@ -33,8 +33,11 @@ static class Theme
     // Dark title bar (Windows 10 2004+/11) and caption color matching the window (Windows 11).
     // The window stays cloaked until every control has painted once, so it never shows a grey or
     // white frame while the dark theme is still drawing.
+    public static Icon AppIcon;
+
     public static void DarkChrome(Form form)
     {
+        if (AppIcon != null) form.Icon = AppIcon;
         if (HighContrast) return;
         form.HandleCreated += delegate {
             try {

@@ -32,8 +32,10 @@ sealed class LauncherApplication : IDisposable
     {
         root = baseDirectory; client = new AgentClient(root); window = new LauncherWindow(false);
         Icon icon = SystemIcons.Application;
-        try { icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
-        window.Icon = icon;
+        // Embedded multi-size icon: sharp at every taskbar/tray size and independent of the shell icon cache.
+        try { using (var stream = typeof(LauncherApplication).Assembly.GetManifestResourceStream("Annex.app.ico")) if (stream != null) icon = new Icon(stream); } catch { }
+        if (icon == SystemIcons.Application) try { icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
+        window.Icon = icon; Theme.AppIcon = icon;
         tray = new NotifyIcon { Icon = icon, Visible = true, Text = "Annex" };
         menu.Renderer = Theme.MenuRenderer();
         menu.Items.Add("Show Annex", null, delegate { Show(); });

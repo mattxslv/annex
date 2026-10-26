@@ -13,7 +13,7 @@ try {
     $compilerArgs = @('/nologo', '/warnaserror', '/target:winexe', '/platform:x64', "/out:$temporary",
         '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Security.dll', '/r:Microsoft.CSharp.dll', '/r:System.Web.Extensions.dll')
     $icon = Join-Path $root 'app.ico'
-    if (Test-Path -LiteralPath $icon -PathType Leaf) { $compilerArgs += "/win32icon:$icon" }
+    if (Test-Path -LiteralPath $icon -PathType Leaf) { $compilerArgs += "/win32icon:$icon"; $compilerArgs += "/resource:$icon,Annex.app.ico" }
     $manifest = Join-Path $root 'app.manifest'
     if (Test-Path -LiteralPath $manifest -PathType Leaf) { $compilerArgs += "/win32manifest:$manifest" }
     $compilerArgs += @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Filter '*.cs' | ForEach-Object FullName)

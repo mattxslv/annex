@@ -265,7 +265,7 @@ sealed class LauncherWindow : Form
     }
     public void ShowGuidance(string title, string body)
     {
-        placeholderTitle.Text = title; placeholderBody.Text = body; placeholder.BringToFront();
+        placeholderTitle.Text = title; placeholderBody.Text = body; placeholder.Visible = true; placeholder.BringToFront();
     }
     Control viewer;
     // The viewer stays behind the placeholder until RevealViewer, so its start-up flashes stay hidden.
@@ -273,7 +273,7 @@ sealed class LauncherWindow : Form
     {
         viewer = control; viewer.Dock = DockStyle.Fill; viewer.BackColor = Color.Black; workspace.Controls.Add(viewer); placeholder.BringToFront();
     }
-    public void RevealViewer() { if (viewer != null) viewer.BringToFront(); }
+    public void RevealViewer() { if (viewer != null) { viewer.BringToFront(); placeholder.Visible = false; } }
     protected override void Dispose(bool disposing) { if (disposing) tips.Dispose(); base.Dispose(disposing); }
 }
 
@@ -294,7 +294,7 @@ static class LauncherPreview
         return form;
     }
     // README screenshots: real windows, example data, window contents only (no title bar).
-    public static int CaptureScreens(string directory)
+    public static int CaptureScreens(string directory, string desktopImage)
     {
         Directory.CreateDirectory(directory);
         Action<Form, string> save = (window, name) => {
@@ -313,13 +313,20 @@ static class LauncherPreview
             form.SetHost(new HostSnapshot(HostState.Running, "Sunshine is running in the Annex desktop. Pair your phone, tablet or TV with this host.", 48989));
             form.ShowGuidance("Your stream's own desktop", "Games and apps run here while you keep using your normal desktop. Sunshine streams this one to your phone, tablet or TV.");
             form.LabelPreview = false; form.SetNotice("Ready. Your physical desktop stays available.");
-            form.Show(); save(form, "launcher.png");
+            form.Show();
+            if (desktopImage != null) {
+                // Stands in for the RDP viewer: a sample desktop, scaled like SmartSizing does.
+                var desktop = new PictureBox { Image = Image.FromFile(desktopImage), SizeMode = PictureBoxSizeMode.Zoom };
+                form.AttachViewer(desktop); form.RevealViewer();
+            }
+            save(form, "launcher.png");
             ((Button)form.Controls.Find("PairingSteps", true)[0]).PerformClick();
             save(form, "pairing.png");
             form.Close();
         }
         using (var apps = new ChildAppWindow()) {
             apps.ShowInTaskbar = false; apps.StartPosition = FormStartPosition.Manual; apps.Location = new Point(-20000, -20000);
+            apps.ClientSize = new Size(596, 463); // same size as the installer screenshot next to it
             apps.SetApps(new[] {
                 new AgentApp { Id = new string('a', 64), Name = "Chrome", Path = @"C:\Program Files\Google\Chrome\Application\chrome.exe" },
                 new AgentApp { Id = new string('b', 64), Name = "Edge", Path = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" },

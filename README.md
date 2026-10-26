@@ -1,22 +1,19 @@
 <p align="center">
-  <img src="assets/logo-256.png" width="88" alt="Annex logo">
-</p>
-
-<h1 align="center">Annex</h1>
-
-<p align="center">
-  A second Windows desktop for game streaming. Play on your phone, tablet or TV while you keep using your PC.
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
+    <img src="assets/banner-light.png" width="520" alt="Annex: a second Windows desktop for game streaming">
+  </picture>
 </p>
 
 <p align="center">
-  <a href="https://github.com/mattxslv/annex/releases"><b>Download</b></a> ·
-  <a href="#install">Install</a> ·
-  <a href="#good-to-know">Good to know</a> ·
-  <a href="docs/details.md">Details</a>
+  <a href="https://github.com/mattxslv/annex/releases/latest"><img src="https://img.shields.io/github/v/release/mattxslv/annex?style=for-the-badge&label=download&color=7D82D9&logo=windows&logoColor=white" alt="Download"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20Pro-2A3350?style=for-the-badge" alt="Windows 10/11 Pro">
+  <img src="https://img.shields.io/badge/works%20with-Sunshine%20%2B%20Moonlight-2A3350?style=for-the-badge" alt="Works with Sunshine and Moonlight">
+  <img src="https://img.shields.io/github/license/mattxslv/annex?style=for-the-badge&color=2A3350" alt="MIT license">
 </p>
 
 <p align="center">
-  <img src="docs/images/pairing.png" alt="Annex launcher">
+  <img src="docs/images/launcher.png" alt="Annex connected to its own Windows desktop">
 </p>
 
 Annex starts a second, separate Windows session on your PC (a Windows *child session*) and runs

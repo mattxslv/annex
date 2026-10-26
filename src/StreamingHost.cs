@@ -170,8 +170,9 @@ sealed class HostController
                     else {
                         HostLaunchReceipt launched = profileLaunch();
                         if (launched == null || launched.ProfileIdentity != profile.Identity) throw new IOException("The launched host did not return a matching process identity.");
-                        lock (gate) { receipt = launched; }
+                        // Persist before publishing, so a restarted helper never misses a launch it reported.
                         try { launched.Save(profile.ReceiptPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                        lock (gate) { receipt = launched; }
                     }
                 }
                 catch (Win32Exception ex) {

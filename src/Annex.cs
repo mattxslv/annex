@@ -82,16 +82,24 @@ static class Program
 
     internal static string PromptPassword(string account)
     {
-        using (var d = new Form { Text = "Annex - one-time setup", Width = 440, Height = 190, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false })
-        {
-            var lbl = new Label { Text = "Enter the Windows password for " + account + "\n(stored DPAPI-encrypted, used to auto-login the child session):", Left = 12, Top = 12, Width = 400, Height = 36 };
-            var tb = new TextBox { Left = 12, Top = 56, Width = 398, UseSystemPasswordChar = true };
-            var ok = new Button { Text = "Save", Left = 246, Top = 92, Width = 80, DialogResult = DialogResult.OK };
-            var cancel = new Button { Text = "Cancel", Left = 332, Top = 92, Width = 80, DialogResult = DialogResult.Cancel };
-            d.Controls.AddRange(new Control[] { lbl, tb, ok, cancel });
-            d.AcceptButton = ok; d.CancelButton = cancel;
-            return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
-        }
+        TextBox tb;
+        using (var d = PasswordForm(account, out tb)) return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
+    }
+
+    internal static Form PasswordForm(string account, out TextBox tb)
+    {
+        var d = new Form { Text = "Annex - one-time setup", ClientSize = new Size(460, 210), FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, BackColor = Theme.Background, ForeColor = Theme.Text, Font = new Font("Segoe UI", 9.5f), AutoScaleMode = AutoScaleMode.Dpi, AutoScaleDimensions = new SizeF(96, 96) };
+        Theme.DarkChrome(d);
+        var mark = new LogoMark { Left = 20, Top = 20, Size = new Size(40, 40) };
+        var title = new Label { Text = "Sign in to the Annex desktop", Left = 72, Top = 20, AutoSize = true, Font = new Font("Segoe UI Semibold", 13), ForeColor = Theme.Text };
+        var lbl = new Label { Text = "Windows password for " + account + ". Stored DPAPI-encrypted for this user only.", Left = 72, Top = 50, Width = 370, Height = 40, ForeColor = Theme.Muted };
+        tb = new TextBox { UseSystemPasswordChar = true, AccessibleName = "Windows password" }; var box = tb;
+        var field = new FieldBox(tb) { Left = 72, Top = 96, Width = 368 };
+        var ok = new AnnexButton { Text = "Save", Kind = ButtonKind.Primary, Left = 260, Top = 152, Size = new Size(88, 36), DialogResult = DialogResult.OK };
+        var cancel = new AnnexButton { Text = "Cancel", Kind = ButtonKind.Secondary, Left = 352, Top = 152, Size = new Size(88, 36), DialogResult = DialogResult.Cancel };
+        d.Controls.AddRange(new Control[] { mark, title, lbl, field, ok, cancel });
+        d.AcceptButton = ok; d.CancelButton = cancel; d.Shown += delegate { box.Focus(); };
+        return d;
     }
 
     internal static bool ChildSessionsEnabled(out bool enabled) { return WTSIsChildSessionsEnabled(out enabled); }

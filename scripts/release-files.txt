@@ -26,6 +26,7 @@ src/ChildApps.cs
 src/ChildAppWindow.cs
 src/NativeHostDiscovery.cs
 src/StreamingHost.cs
+src/Theme.cs
 src/SessionAgent.cs
 src/LauncherPolicy.cs
 src/LauncherWindow.cs

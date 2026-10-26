@@ -34,6 +34,7 @@ sealed class LauncherApplication : IDisposable
         try { icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         window.Icon = icon;
         tray = new NotifyIcon { Icon = icon, Visible = true, Text = "Annex" };
+        menu.Renderer = Theme.MenuRenderer();
         menu.Items.Add("Show Annex", null, delegate { Show(); });
         menu.Items.Add("Reconnect", null, delegate { Reconnect(); });
         menu.Items.Add("Forget saved password", null, delegate {

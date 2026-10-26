@@ -81,24 +81,50 @@ static class Program
         Log("signout requested for child session " + sessionId);
     }
 
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern bool LogonUser(string user, string domain, string password, int logonType, int provider, out IntPtr token);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+
+    // Windows' own check of the typed password, so a typo is caught before connecting (and never saved).
+    // Only a definite "wrong user name or password" counts; anything else is left to the real sign-in.
+    internal static bool PasswordRejected(string password)
+    {
+        IntPtr token;
+        if (LogonUser(Environment.UserName, Environment.MachineName, password, 3 /* network */, 0, out token)) { CloseHandle(token); return false; }
+        int error = Marshal.GetLastWin32Error();
+        Log("password check: error " + error);
+        return error == 1326;
+    }
+
     internal static string PromptPassword(string account)
     {
         TextBox tb;
-        using (var d = PasswordForm(account, out tb)) return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
+        using (var d = PasswordForm(account, out tb, PasswordRejected)) return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
     }
 
-    internal static Form PasswordForm(string account, out TextBox tb)
+    internal static Form PasswordForm(string account, out TextBox tb, Func<string, bool> rejected = null)
     {
-        var d = new Form { Text = "Annex - one-time setup", ClientSize = new Size(460, 210), FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, BackColor = Theme.Background, ForeColor = Theme.Text, Font = new Font("Segoe UI", 9.5f), AutoScaleMode = AutoScaleMode.Dpi, AutoScaleDimensions = new SizeF(96, 96) };
+        var d = new Form { Text = "Annex - one-time setup", ClientSize = new Size(460, 222), FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, BackColor = Theme.Background, ForeColor = Theme.Text, Font = new Font("Segoe UI", 9.5f), AutoScaleMode = AutoScaleMode.Dpi, AutoScaleDimensions = new SizeF(96, 96) };
         Theme.DarkChrome(d);
         var mark = new LogoMark { Left = 20, Top = 20, Size = new Size(40, 40) };
         var title = new Label { Text = "Sign in to the Annex desktop", Left = 72, Top = 20, AutoSize = true, Font = new Font("Segoe UI Semibold", 13), ForeColor = Theme.Text };
         var lbl = new Label { Text = "Windows password for " + account + ". Stored DPAPI-encrypted for this user only.", Left = 72, Top = 50, Width = 370, Height = 40, ForeColor = Theme.Muted };
         tb = new TextBox { UseSystemPasswordChar = true, AccessibleName = "Windows password" }; var box = tb;
         var field = new FieldBox(tb) { Left = 72, Top = 96, Width = 368 };
-        var ok = new AnnexButton { Text = "Save", Kind = ButtonKind.Primary, Left = 260, Top = 152, Size = new Size(88, 36), DialogResult = DialogResult.OK };
-        var cancel = new AnnexButton { Text = "Cancel", Kind = ButtonKind.Secondary, Left = 352, Top = 152, Size = new Size(88, 36), DialogResult = DialogResult.Cancel };
-        d.Controls.AddRange(new Control[] { mark, title, lbl, field, ok, cancel });
+        var error = new Label { Left = 72, Top = 134, Width = 368, Height = 20, ForeColor = Theme.Bad, UseMnemonic = false };
+        var ok = new AnnexButton { Text = "Save", Kind = ButtonKind.Primary, Left = 260, Top = 164, Size = new Size(88, 36) };
+        var cancel = new AnnexButton { Text = "Cancel", Kind = ButtonKind.Secondary, Left = 352, Top = 164, Size = new Size(88, 36), DialogResult = DialogResult.Cancel };
+        string refused = null;
+        ok.Click += delegate {
+            if (box.Text.Length == 0) { error.Text = "Enter your Windows password."; return; }
+            // Saving the same text again overrides the check, in case it misjudges an account type.
+            if (rejected != null && box.Text != refused && rejected(box.Text)) {
+                refused = box.Text; error.Text = "Windows rejected that password. Fix it, or press Save again to try it."; box.Focus(); return;
+            }
+            d.DialogResult = DialogResult.OK;
+        };
+        box.TextChanged += delegate { if (box.Text != refused) error.Text = ""; };
+        d.Controls.AddRange(new Control[] { mark, title, lbl, field, error, ok, cancel });
         d.AcceptButton = ok; d.CancelButton = cancel; d.Shown += delegate { box.Focus(); };
         return d;
     }

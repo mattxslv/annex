@@ -26,8 +26,9 @@ sealed class LauncherApplication : IDisposable
     ChildAppWindow appWindow;
     uint child;
     long lastAttempt;
-    bool wantReconnect, ending, inFlight, promptOpen, setupReady, settingUp, viewerShown, signingOut;
-    long signOutStarted;
+    bool wantReconnect, ending, inFlight, promptOpen, setupReady, settingUp, viewerShown, signingOut, passwordUnverified, reachedDesktop;
+    long signOutStarted, childSince;
+    bool HelperStarting { get { return clock.ElapsedMilliseconds - childSince < 60000; } }
     int lastState;
     HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the Annex desktop to check its Sunshine instance.", 0);
 
@@ -115,8 +116,10 @@ sealed class LauncherApplication : IDisposable
         if (password == null) {
             password = Program.PromptPassword(account);
             if (password == null) { window.SetNotice("Connection canceled. No Annex desktop was opened."); return; }
-            Program.SavePassword(password);
+            // Saved only once it has signed in (see Poll), so a typo is never remembered.
+            passwordUnverified = true;
         }
+        reachedDesktop = false;
         try {
             if (rdp == null) {
                 rdp = new RdpBox(); window.AttachViewer(rdp); rdp.CreateControl(); ocx = rdp.Ocx;
@@ -165,6 +168,11 @@ sealed class LauncherApplication : IDisposable
         if (ending || !setupReady) return;
         int state = State(); uint actual = 0;
         if (state == 0 && lastState != 0 && SignedOut()) { lastState = state; return; }
+        if (state == 0 && passwordUnverified && !reachedDesktop && clock.ElapsedMilliseconds - lastAttempt > 3000) { lastState = state; SignInFailed(); return; }
+        if (state == 1 && !reachedDesktop) {
+            reachedDesktop = true;
+            if (passwordUnverified) { Program.SavePassword(password); passwordUnverified = false; }
+        }
         lastState = state;
         // The RDP control flashes white/green while it initialises; keep the placeholder up until it is connected.
         if (state == 1 && !viewerShown) { viewerShown = true; window.RevealViewer(); }
@@ -175,6 +183,7 @@ sealed class LauncherApplication : IDisposable
         }
         HostSnapshot pending = LauncherPolicy.ForSession(host, child, actual);
         if (!Object.ReferenceEquals(host, pending)) { host = pending; window.SetHost(host); }
+        if (actual != 0 && actual != child) childSince = clock.ElapsedMilliseconds;
         requests.Update(actual, state == 1 && actual != 0); child = actual;
         if (appWindow != null && !appWindow.IsDisposed) appWindow.SetAvailable(actual != 0 && state == 1);
         if (state == 1) window.SetSession("Connected", "The Annex desktop is attached. You can keep using your physical desktop.", true, true);
@@ -194,11 +203,13 @@ sealed class LauncherApplication : IDisposable
             if (!window.IsDisposed && requests.Accepts(token, requestedChild) && StillConnected(requestedChild)) {
                 selection = result.SelectionId; requests.Select(selection); selectedName = "host";
                 foreach (AgentHost item in result.Hosts) if (item.Id == selection) selectedName = item.Name;
+                // The helper starts with the new desktop sign-in; give it a minute before calling it unavailable.
+                if (result.Status.State == HostState.Unavailable && HelperStarting) { result.Status = new HostSnapshot(HostState.Checking, "Starting the Annex helper in the new desktop...", 0); result.Diagnostic = ""; }
                 host = result.Status; window.SetDiscovery(result);
                 ask = (request.Command == "STATUS" || request.Command == "SELECT_HOST") && (appWindow == null || appWindow.IsDisposed) && prompts.ShouldAsk(requestedChild, selection, host.State, true);
             }
         }
-        catch (Exception ex) { if (!window.IsDisposed && !ending) window.SetNotice("Host check failed: " + ex.Message); }
+        catch (Exception ex) { if (!window.IsDisposed && !ending && !HelperStarting) window.SetNotice("Host check failed: " + ex.Message); }
         finally { inFlight = false; if (!quiet && !window.IsDisposed) window.SetBusy(false); }
         if (ask && !ending && !window.IsDisposed) ConfirmStart();
     }
@@ -278,6 +289,15 @@ sealed class LauncherApplication : IDisposable
         if (reason != 2 && reason != 12) return false;
         ReturnToStart("The Annex desktop was signed out. Start a new one when you're ready.");
         return true;
+    }
+    // A newly typed password didn't get the desktop to connect: forget it (it was never saved) and ask again next time.
+    void SignInFailed()
+    {
+        Program.Log("sign-in with a newly entered password failed; it was not saved");
+        password = null; passwordUnverified = false; wantReconnect = false; viewerShown = false;
+        window.SetSession("Sign-in failed", "Windows didn't accept that password. Choose Start desktop to try again.", false, true);
+        window.ShowGuidance("That password didn't work", "Use your Windows account password for " + Environment.MachineName + "\\" + Environment.UserName + ", not your Windows Hello PIN. Choose Start desktop to try again.");
+        window.SetNotice("Sign-in failed. Nothing was saved.");
     }
     // Back to the "Start desktop" state after a sign-out; Annex stays open.
     void ReturnToStart(string notice)

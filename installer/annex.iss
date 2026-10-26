@@ -92,14 +92,26 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
-// Centre the corner logo vertically in the header and keep it off the right edge.
-procedure InitializeWizard;
+// Centre the corner logo vertically in the header and keep it off the right edge. Inno lays the
+// header out again when pages change, so this runs for every page.
+procedure PlaceLogo;
 var
   Logo: TBitmapImage;
 begin
   Logo := WizardForm.WizardSmallBitmapImage;
-  Logo.Top := (WizardForm.MainPanel.Height - Logo.Height) div 2;
-  Logo.Left := WizardForm.MainPanel.Width - Logo.Width - ScaleX(24);
+  Logo.Anchors := [akTop, akRight];
+  Logo.Top := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
+  Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - ScaleX(24);
+end;
+
+procedure InitializeWizard;
+begin
+  PlaceLogo;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  PlaceLogo;
 end;
 
 // Nothing is installed before the Installing page, so Cancel just closes without asking.

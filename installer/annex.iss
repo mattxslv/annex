@@ -93,19 +93,34 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
-// Header inside the same margins as the page content: title and description start where the
-// content starts, and the corner logo ends the same distance from the right edge. Re-applied on
-// page changes because Inno lays the header out again.
+// Header inside the same margins as the page content: taller, with title/description and the
+// corner logo centred vertically, title aligned with the content's left edge, logo ending the
+// same distance from the right edge. Re-applied on page changes because Inno lays it out again.
+const
+  HeaderHeight = 84;
+
 procedure PlaceHeader;
 var
   Logo: TBitmapImage;
-  Inset: Integer;
+  Inset, Grow, TextHeight, TextTop, DescOffset: Integer;
 begin
+  Grow := ScaleY(HeaderHeight) - WizardForm.MainPanel.Height;
+  if Grow > 0 then begin
+    WizardForm.MainPanel.Height := WizardForm.MainPanel.Height + Grow;
+    WizardForm.InnerNotebook.Top := WizardForm.InnerNotebook.Top + Grow;
+    WizardForm.InnerNotebook.Height := WizardForm.InnerNotebook.Height - Grow;
+    WizardForm.Bevel1.Top := WizardForm.Bevel1.Top + Grow;
+  end;
   Inset := WizardForm.InnerNotebook.Left + WizardForm.SelectTasksLabel.Left;
   Logo := WizardForm.WizardSmallBitmapImage;
   Logo.Top := (WizardForm.MainPanel.ClientHeight - Logo.Height) div 2;
   // +12: the bitmap has transparent padding, and the header panel is offset from the page edge.
   Logo.Left := WizardForm.MainPanel.ClientWidth - Logo.Width - Inset + ScaleX(12);
+  DescOffset := WizardForm.PageDescriptionLabel.Top - WizardForm.PageNameLabel.Top;
+  TextHeight := DescOffset + WizardForm.PageDescriptionLabel.Height;
+  TextTop := (WizardForm.MainPanel.ClientHeight - TextHeight) div 2;
+  WizardForm.PageNameLabel.Top := TextTop;
+  WizardForm.PageDescriptionLabel.Top := TextTop + DescOffset;
   WizardForm.PageNameLabel.Left := Inset;
   WizardForm.PageDescriptionLabel.Left := Inset;
   WizardForm.PageNameLabel.Width := Logo.Left - Inset - ScaleX(12);

@@ -135,7 +135,12 @@ var
 begin
   BannerTop := WizardForm.WizardBitmapImage.Top + (WizardForm.WizardBitmapImage.Height - ScaleY(314)) div 2;
   Heading.Top := BannerTop + ScaleY(24);
-  Body.Top := Heading.Top + ScaleY(46);
+  // The heading box is sized for two lines; shrink it so it doesn't cover the text below.
+  Heading.Height := ScaleY(34);
+  Body.Top := Heading.Top + Heading.Height + ScaleY(12);
+  // Finish page: keep the "Open Annex" checkbox below the text.
+  if Body = WizardForm.FinishedLabel then
+    WizardForm.RunList.Top := Body.Top + Body.Height + ScaleY(16);
 end;
 
 procedure InitializeWizard;

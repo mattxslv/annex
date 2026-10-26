@@ -40,7 +40,8 @@ CloseApplications=yes
 [Messages]
 WelcomeLabel1=Welcome to Annex
 WelcomeLabel2=Annex gives your PC a second Windows desktop for streaming games and apps to your phone, tablet or TV, while you keep using this one.%n%nSetup installs Annex for your Windows account and prepares Windows for it. Windows will ask twice for administrator approval.
-SelectTasksDesc=Choose what to set up
+WizardSelectTasks=Choose what to set up
+SelectTasksDesc=Pick the extras you want. Annex itself is always installed.
 SelectTasksLabel2=You can install Sunshine later from inside Annex too.
 FinishedHeadingLabel=Annex is ready
 FinishedLabelNoIcons=Open Annex and choose Start desktop. The first time, it asks for your Windows password (not your PIN).
@@ -91,6 +92,12 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
+// Nothing is installed before the Installing page, so Cancel just closes without asking.
+procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
+begin
+  if CurPageID <> wpInstalling then Confirm := False;
+end;
+
 function SetupArgs(Param: String): String;
 begin
   Result := '';

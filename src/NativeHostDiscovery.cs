@@ -64,6 +64,8 @@ sealed class NativeHostDiscovery : IHostDiscoverySource
                 foreach (var process in Process.GetProcessesByName(name)) using (process) {
                     try { list.Add(new HostCandidate(HostNative.ProcessPath((uint)process.Id), null, "running")); }
                     catch (InvalidOperationException) { }
+                    // Access denied = a host running as administrator, typically the main host (e.g. Vibepollo). Not an Annex problem.
+                    catch (System.ComponentModel.Win32Exception ex) { if (ex.NativeErrorCode != 5) list.Add(new HostCandidate(null, null, "running") { Diagnostic = "A running host path could not be inspected: " + ex.Message }); }
                     catch (Exception ex) { list.Add(new HostCandidate(null, null, "running") { Diagnostic = "A running host path could not be inspected: " + ex.Message }); }
                 }
             } catch (Exception ex) { list.Add(new HostCandidate(null, null, "running") { Diagnostic = "Running host discovery failed: " + ex.Message }); }

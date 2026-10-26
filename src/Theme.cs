@@ -11,8 +11,9 @@ static class Theme
     public static readonly bool HighContrast = SystemInformation.HighContrast;
     public static readonly Color Background = Pick(Color.FromArgb(13, 15, 20), SystemColors.Window);
     public static readonly Color Rail = Pick(Color.FromArgb(17, 20, 27), SystemColors.Window);
-    public static readonly Color Surface = Pick(Color.FromArgb(22, 25, 34), SystemColors.Window);
-    public static readonly Color SurfaceHover = Pick(Color.FromArgb(32, 36, 50), SystemColors.Window);
+    public static readonly Color Card = Pick(Color.FromArgb(21, 24, 32), SystemColors.Window);
+    public static readonly Color Surface = Pick(Color.FromArgb(27, 31, 42), SystemColors.Window);
+    public static readonly Color SurfaceHover = Pick(Color.FromArgb(37, 42, 57), SystemColors.Window);
     public static readonly Color Border = Pick(Color.FromArgb(38, 43, 56), SystemColors.WindowText);
     public static readonly Color Text = Pick(Color.FromArgb(205, 214, 244), SystemColors.WindowText);
     public static readonly Color Muted = Pick(Color.FromArgb(140, 147, 173), SystemColors.WindowText);
@@ -110,14 +111,14 @@ static class Theme
     }
 }
 
-enum ButtonKind { Primary, Secondary, Danger }
+enum ButtonKind { Primary, Secondary, Danger, Ghost }
 
 // Rounded, owner-drawn button. Falls back to the standard button in high-contrast mode.
 sealed class AnnexButton : Button
 {
     ButtonKind kind;
     bool hover, down;
-    public ButtonKind Kind { get { return kind; } set { kind = value; Invalidate(); } }
+    public ButtonKind Kind { get { return kind; } set { if (kind == value) return; kind = value; Invalidate(); } }
 
     public AnnexButton()
     {
@@ -143,9 +144,13 @@ sealed class AnnexButton : Button
         var rect = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
         Color text, border;
         using (var path = Theme.Rounded(rect, 8 * scale)) {
-            if (!Enabled) {
-                using (var fill = new SolidBrush(Color.FromArgb(18, 21, 29))) g.FillPath(fill, path);
-                border = Color.FromArgb(30, 34, 45); text = Theme.Faint;
+            if (kind == ButtonKind.Ghost) {
+                if (Enabled && (hover || down)) using (var fill = new SolidBrush(down ? Theme.Border : Theme.SurfaceHover)) g.FillPath(fill, path);
+                border = Enabled && Focused && ShowFocusCues ? Theme.Accent : Color.Transparent;
+                text = !Enabled ? Theme.Faint : hover ? Theme.Text : Theme.Muted;
+            } else if (!Enabled) {
+                using (var fill = new SolidBrush(Color.FromArgb(24, 27, 36))) g.FillPath(fill, path);
+                border = Color.FromArgb(34, 38, 50); text = Theme.Faint;
             } else if (kind == ButtonKind.Primary) {
                 Color a = hover ? Light(Theme.Accent, 18) : Theme.Accent, b = hover ? Light(Theme.Accent2, 18) : Theme.Accent2;
                 if (down) { a = Theme.Accent2; b = Theme.Accent2; }
@@ -156,7 +161,7 @@ sealed class AnnexButton : Button
                 border = Focused && ShowFocusCues ? Theme.Accent : kind == ButtonKind.Danger ? Color.FromArgb(84, 46, 60) : Color.FromArgb(46, 52, 72);
                 text = kind == ButtonKind.Danger ? Theme.Bad : Theme.Text;
             }
-            using (var pen = new Pen(border)) g.DrawPath(pen, path);
+            if (border != Color.Transparent) using (var pen = new Pen(border)) g.DrawPath(pen, path);
         }
         var flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis;
         if (!ShowKeyboardCues) flags |= TextFormatFlags.HidePrefix;
@@ -208,7 +213,7 @@ sealed class LogoMark : Control
 sealed class StatusLabel : Label
 {
     Color dot = Theme.Faint;
-    public Color DotColor { get { return dot; } set { dot = value; Invalidate(); } }
+    public Color DotColor { get { return dot; } set { if (dot == value) return; dot = value; Invalidate(); } }
     public StatusLabel() { UseMnemonic = false; AutoSize = true; }
     protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); Padding = new Padding(Font.Height * 3 / 4, 0, 0, 0); }
     protected override void OnPaint(PaintEventArgs e)

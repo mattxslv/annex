@@ -22,6 +22,14 @@ static class LauncherTests
         }
         return null;
     }
+    static PairingSteps FindSteps(Control parent)
+    {
+        foreach (Control control in parent.Controls) {
+            var steps = control as PairingSteps; if (steps != null) return steps;
+            var found = FindSteps(control); if (found != null) return found;
+        }
+        return null;
+    }
     static bool HasText(Control parent, string text)
     {
         if (parent.Text == text) return true;
@@ -218,19 +226,18 @@ static class LauncherTests
                 Assert(FindButton(form, "Show desktop") != null, "screen reader still calls the connected action Start desktop");
             }
         });
-        check("expanded pairing instructions retain a readable scrollable height", delegate {
+        check("expanded pairing steps stay readable without crowding out the desktop", delegate {
             using (var form = LauncherPreview.Create(HostState.Running)) {
                 form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new System.Drawing.Point(-20000, -20000);
                 form.Show(); Application.DoEvents();
                 FindButton(form, "Show pairing steps").PerformClick(); Application.DoEvents();
-                var guide = FindField(form, "Pairing instructions");
-                Assert(guide.Visible && guide.ClientSize.Height >= 140 && guide.ScrollBars == ScrollBars.Vertical, "guide collapsed or cannot be scrolled");
-                Assert(guide.Height <= 190, "expanded guide exceeds its height budget");
+                var guide = FindSteps(form);
+                Assert(guide.Visible && guide.Steps.Length == 4 && guide.Height >= 100, "steps collapsed: height=" + guide.Height);
+                Assert(guide.Height <= 200, "expanded steps exceed their height budget: " + guide.Height);
                 form.ClientSize = new System.Drawing.Size(900, 640); Application.DoEvents();
-                Assert(guide.ClientSize.Height >= 140, "compact window collapsed its instructions");
-                Assert(guide.Height <= 190, "compact guide exceeds its height budget");
+                Assert(guide.Height >= 100 && guide.Height <= 280, "compact steps sized badly: " + guide.Height);
                 int workspaceHeight = form.Controls.Find("DesktopWorkspace", true)[0].ClientSize.Height;
-                Assert(workspaceHeight >= 140, "compact guide consumed the desktop workspace: viewer=" + workspaceHeight + ", guide=" + guide.Height + ", pairing=" + guide.Parent.Height + ", clientRow=" + guide.Parent.Controls[0].Height + ", settingsRow=" + guide.Parent.Controls[1].Height + ", right=" + guide.Parent.Parent.Height);
+                Assert(workspaceHeight >= 140, "compact steps consumed the desktop workspace: viewer=" + workspaceHeight + ", steps=" + guide.Height);
                 form.Size = form.MinimumSize; Application.DoEvents();
                 var copy = FindButton(form, "Copy settings URL");
                 var copyBounds = form.RectangleToClient(copy.RectangleToScreen(copy.ClientRectangle));
@@ -240,8 +247,9 @@ static class LauncherTests
         });
         check("native pairing steps retain separate Windows paragraphs", delegate {
             using (var form = LauncherPreview.Create(HostState.Running)) {
-                string text = FindField(form, "Pairing instructions").Text;
-                Assert(text.Contains("\r\n\r\n2.") && text.Contains("\r\n\r\n3.") && text.Contains("\r\n\r\n4."), "native text box merges the numbered steps");
+                var steps = FindSteps(form);
+                Assert(steps.Text.Contains("\r\n\r\n2.") && steps.Text.Contains("\r\n\r\n4.") && steps.AccessibleDescription == steps.Text, "accessible pairing text merges the numbered steps");
+                Assert(steps.Steps.Length == 4 && !steps.Steps[1].StartsWith("2."), "steps were not split into numbered cards");
             }
         });
     }

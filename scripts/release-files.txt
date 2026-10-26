@@ -17,6 +17,7 @@ scripts/package.ps1
 scripts/release-files.txt
 src/Annex.cs
 src/Annex.Core.cs
+src/Controls.cs
 src/DesktopSetup.cs
 src/ElevationPolicy.cs
 src/HostDiscovery.cs

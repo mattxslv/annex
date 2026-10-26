@@ -32,10 +32,10 @@ static class LauncherPolicy
         string url = SettingsUrl(status);
         if (url == null) return ("Start the Annex desktop and " + hostName + " first, or wait for startup to finish. Resolve any setup or helper error shown above.\n\nPairing uses a browser on your normal desktop; a browser inside the Annex desktop is not required.").Replace("\n", Environment.NewLine);
         string address = computerName + ":" + status.BasePort.ToString(CultureInfo.InvariantCulture);
-        return ("1. On this PC's normal desktop, open " + url + " in your browser. A browser inside the Annex desktop is not required.\n\n" +
-            "2. First time: review Sunshine's local certificate and create a Sunshine web username/password. This is separate from your Windows password.\n\n" +
-            "3. On your phone or other device, add " + address + " in Moonlight. If the PC name does not resolve, use this PC's LAN IP with the same port. Select the host to display a PIN.\n\n" +
-            "4. In Sunshine on this PC, open the PIN tab and enter that PIN and a device name. Return to Moonlight and select Desktop. Keep Annex attached; minimize to tray while playing.").Replace("Sunshine", hostName).Replace("\n", Environment.NewLine);
+        return ("1. Open " + url + " in a browser on your normal desktop. No browser is needed inside the Annex desktop.\n\n" +
+            "2. First time only: accept Sunshine's local certificate and create a Sunshine login. It is separate from your Windows password.\n\n" +
+            "3. In Moonlight on your phone, tablet or TV, add " + address + ". If the name does not resolve, use this PC's LAN IP. Moonlight then shows a PIN.\n\n" +
+            "4. In Sunshine's PIN tab, enter that PIN and a device name, then choose Desktop in Moonlight. Keep Annex open; minimize it to the tray while playing.").Replace("Sunshine", hostName).Replace("\n", Environment.NewLine);
     }
 }
 

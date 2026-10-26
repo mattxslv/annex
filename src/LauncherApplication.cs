@@ -24,7 +24,8 @@ sealed class LauncherApplication : IDisposable
     ChildAppWindow appWindow;
     uint child;
     long lastAttempt;
-    bool wantReconnect, ending, inFlight, promptOpen, setupReady, settingUp;
+    bool wantReconnect, ending, inFlight, promptOpen, setupReady, settingUp, viewerShown;
+    int lastState;
     HostSnapshot host = new HostSnapshot(HostState.Waiting, "Start the Annex desktop to check its Sunshine instance.", 0);
 
     public LauncherApplication(string baseDirectory)
@@ -127,6 +128,7 @@ sealed class LauncherApplication : IDisposable
             object valueChild = true; ((IMsRdpExtendedSettings)rdp.Ocx).put_Property("ConnectToChildSession", ref valueChild);
             lastAttempt = clock.ElapsedMilliseconds; wantReconnect = true;
             window.SetSession("Connecting...", "Opening the second Windows desktop. Keep the viewer attached during your stream.", false, true);
+            viewerShown = false; window.ShowGuidance("Connecting...", "Opening your Annex desktop. This takes a few seconds.");
             RdpInputSettings.Connect(ocx, new Action<string>(message => { Program.Log(message); window.SetNotice(message); }));
         }
         catch (Exception ex) {
@@ -147,6 +149,11 @@ sealed class LauncherApplication : IDisposable
     {
         if (ending || !setupReady) return;
         int state = State(); uint actual = 0;
+        if (state == 0 && lastState != 0 && SignedOut()) { lastState = state; return; }
+        lastState = state;
+        // The RDP control flashes white/green while it initialises; keep the placeholder up until it is connected.
+        if (state == 1 && !viewerShown) { viewerShown = true; window.RevealViewer(); }
+        else if (state != 1 && viewerShown) { viewerShown = false; window.ShowGuidance("Reconnecting...", "The viewer lost its connection. Your Annex desktop and its apps keep running."); }
         if (state == 1) {
             uint found;
             if (HostNative.WTSGetChildSessionId(out found) && PeerIdentity.IsTarget(found, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId())) actual = found;
@@ -158,14 +165,15 @@ sealed class LauncherApplication : IDisposable
         if (state == 1) window.SetSession("Connected", "The Annex desktop is attached. You can keep using your physical desktop.", true, true);
         else if (state != 0) window.SetSession("Connecting...", "Windows is opening the second desktop.", false, true);
         else if (wantReconnect) window.SetSession("Reconnecting...", "The viewer disconnected. Your Annex desktop may still be running.", false, true);
-        if (state == 1 && child != 0 && !inFlight && !promptOpen) RequestHost(new AgentRequest { Command = "STATUS" });
+        if (state == 1 && child != 0 && !inFlight && !promptOpen) RequestHost(new AgentRequest { Command = "STATUS" }, true);
         if (state == 0 && wantReconnect && clock.ElapsedMilliseconds - lastAttempt > 6000) Connect();
     }
-    async void RequestHost(AgentRequest request)
+    // Routine status polls are quiet: they don't disable the buttons while the helper answers.
+    async void RequestHost(AgentRequest request, bool quiet = false)
     {
         if (ending || inFlight || !StillConnected(child)) return;
         uint requestedChild = child; int token = requests.Generation;
-        inFlight = true; window.SetBusy(true); bool ask = false;
+        inFlight = true; if (!quiet) window.SetBusy(true); bool ask = false;
         try {
             AgentReply result = await Task.Run(() => client.Request(requestedChild, request));
             if (!window.IsDisposed && requests.Accepts(token, requestedChild) && StillConnected(requestedChild)) {
@@ -176,7 +184,7 @@ sealed class LauncherApplication : IDisposable
             }
         }
         catch (Exception ex) { if (!window.IsDisposed && !ending) window.SetNotice("Host check failed: " + ex.Message); }
-        finally { inFlight = false; if (!window.IsDisposed) window.SetBusy(false); }
+        finally { inFlight = false; if (!quiet && !window.IsDisposed) window.SetBusy(false); }
         if (ask && !ending && !window.IsDisposed) ConfirmStart();
     }
     void ConfirmStart()
@@ -185,10 +193,10 @@ sealed class LauncherApplication : IDisposable
         string approvedSelection = selection;
         if (string.IsNullOrEmpty(approvedSelection) || promptOpen || inFlight || !approval.CanProceed(child) || !StillConnected(approval.Child) || !LauncherPolicy.CanStartHost(host, true)) return;
         promptOpen = true;
-        DialogResult answer;
-        try { answer = MessageBox.Show(window, "Start " + selectedName + " inside the Annex desktop?\n\nThis uses Annex's own settings and ports. Windows may ask you to approve elevation inside that desktop.", "Start " + selectedName + "?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2); }
+        bool answer;
+        try { answer = AnnexDialog.Ask(window, "Start " + selectedName + "?", "It runs inside the Annex desktop with its own settings and ports. Windows may ask you to approve it inside that desktop.", "Start " + selectedName, "Not now", false); }
         finally { promptOpen = false; }
-        if (answer == DialogResult.Yes) {
+        if (answer) {
             if (approvedSelection == selection && approval.CanProceed(child) && StillConnected(approval.Child)) RequestHost(new AgentRequest { Command = "START_HOST", SelectionId = approvedSelection });
             else window.SetNotice("The desktop or host selection changed. Review its status and confirm startup again.");
         }
@@ -245,15 +253,28 @@ sealed class LauncherApplication : IDisposable
         } catch (Exception ex) { if (!picker.IsDisposed) picker.SetApps(new AgentApp[0], ex.Message); }
         finally { inFlight = false; if (!window.IsDisposed) window.SetBusy(false); }
     }
+    // The Annex desktop was signed out (End session, or Sign out inside it): close instead of
+    // reconnecting, which would start a fresh desktop.
+    bool SignedOut()
+    {
+        int reason = -1;
+        try { reason = (int)ocx.ExtendedDisconnectReason; } catch (Exception) { }
+        Program.Log("viewer disconnected, extended reason " + reason);
+        if (reason != 2 && reason != 12) return false;
+        ending = true; wantReconnect = false; requests.Close();
+        window.SetNotice("The Annex desktop was signed out. Closing Annex.");
+        var quit = new Timer { Interval = 800 }; quit.Tick += delegate { quit.Stop(); quit.Dispose(); window.Close(); }; quit.Start();
+        return true;
+    }
     void EndSession()
     {
         var approval = new SessionConfirmation(requests, child);
         if (ending || promptOpen || !approval.CanProceed(child) || !StillConnected(approval.Child)) return;
         promptOpen = true;
-        DialogResult answer;
-        try { answer = MessageBox.Show(window, "Sign out the Annex desktop? All games and applications in it will close.", "End Annex session", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2); }
+        bool answer;
+        try { answer = AnnexDialog.Ask(window, "End the Annex session?", "This signs out the Annex desktop. Games and apps running in it will close, and Annex will exit.", "Sign out", "Cancel", true); }
         finally { promptOpen = false; }
-        if (answer != DialogResult.Yes) return;
+        if (!answer) return;
         if (!approval.CanProceed(child) || !StillConnected(approval.Child)) {
             window.SetNotice("The desktop connection changed. Review it and choose End session again."); return;
         }
@@ -261,11 +282,11 @@ sealed class LauncherApplication : IDisposable
         try {
             new ChildSessionController(Program.GetChildSessionId, Program.LogoffChildSession).EndConfirmedSession(approval.Child, (uint)HostNative.CurrentSession(), HostNative.WTSGetActiveConsoleSessionId());
             requests.Close(); window.SetNotice("Sign-out requested. Closing the viewer without reconnecting.");
-            var quit = new Timer { Interval = 3000 }; quit.Tick += delegate { quit.Stop(); quit.Dispose(); window.Close(); }; quit.Start();
+            var quit = new Timer { Interval = 1000 }; quit.Tick += delegate { quit.Stop(); quit.Dispose(); window.Close(); }; quit.Start();
         }
         catch (Exception ex) {
             ending = false; wantReconnect = previousReconnect; window.SetEnding(false); Program.Log("signout failed: " + ex.Message);
-            MessageBox.Show(window, "Could not sign out the Annex desktop.\n" + ex.Message, "Annex", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            AnnexDialog.Tell(window, "Could not sign out", ex.Message, true);
         }
     }
     public void Dispose() { requests.Close(); timer.Dispose(); tray.Dispose(); menu.Dispose(); window.Dispose(); }

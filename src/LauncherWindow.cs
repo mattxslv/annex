@@ -322,7 +322,7 @@ static class LauncherPreview
             using (var bitmap = new Bitmap(prompt.Width, prompt.Height)) { prompt.DrawToBitmap(bitmap, new Rectangle(Point.Empty, prompt.Size)); bitmap.Save(Path.Combine(directory, "password.png"), ImageFormat.Png); }
             prompt.Close();
         }
-        using (var dialog = AnnexDialog.Build("End the Annex session?", "This signs out the Annex desktop. Games and apps running in it will close, and Annex will exit.", "Sign out", "Cancel", ButtonKind.Danger, Theme.Bad)) {
+        using (var dialog = AnnexDialog.Build("End the Annex session?", "This signs out the Annex desktop. Games and apps running in it will close. Annex stays open so you can start a new one.", "Sign out", "Cancel", ButtonKind.Danger, Theme.Bad)) {
             dialog.ShowInTaskbar = false; dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-20000, -20000); dialog.Show(); Application.DoEvents();
             using (var bitmap = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(bitmap, new Rectangle(Point.Empty, dialog.Size)); bitmap.Save(Path.Combine(directory, "dialog.png"), ImageFormat.Png); }
             dialog.Close();

@@ -21,6 +21,8 @@ sealed class LauncherApplication : IDisposable
     RdpBox rdp;
     dynamic ocx;
     RdpScaleSettings scale;
+    AxHost.ConnectionPointCookie disconnectEvents;
+    int disconnectReason;
     string password;
     string selection = "", selectedName = "host";
     ChildAppWindow appWindow;
@@ -49,7 +51,8 @@ sealed class LauncherApplication : IDisposable
             tray.ShowBalloonTip(2000, "Annex", cleared ? "Saved password removed. It will be requested next time you launch." : "Could not remove cred.bin. Check its file permissions and launcher.log.", cleared ? ToolTipIcon.Info : ToolTipIcon.Error);
         });
         menu.Items.Add("End session (closes games)", null, delegate { EndSession(); });
-        menu.Items.Add("Exit viewer", null, delegate { window.Close(); });
+        // Close after the tray menu has finished closing, not from inside its click.
+        menu.Items.Add("Exit viewer", null, delegate { window.BeginInvoke(new Action(window.Close)); });
         tray.ContextMenuStrip = menu; tray.DoubleClick += delegate { Show(); };
         window.ConnectRequested += delegate { Connect(); };
         window.ReconnectRequested += delegate { Reconnect(); };
@@ -82,6 +85,9 @@ sealed class LauncherApplication : IDisposable
         bool enabled;
         bool known = Program.ChildSessionsEnabled(out enabled);
         setupReady = known && enabled;
+        var account = SignInAccount.Current(); bool gpu = HardwareGraphics.Enabled();
+        Program.Log("start: " + WindowsVersion() + ", child sessions " + (known ? enabled.ToString() : "unknown") + ", hardware graphics policy " + gpu + ", Microsoft account " + account.MicrosoftAccount + ", Hello-only sign-in " + account.PasswordlessOnly + ", helper startup disabled " + HelperStartup.Disabled());
+        if (setupReady && !gpu) { graphicsNotice = "The Annex desktop may be drawn without your graphics card (slow on Windows 10). Choose Setup / repair to fix it."; window.SetNotice(graphicsNotice); }
         if (!setupReady) {
             window.SetSession("Setup required", known ? "Windows child sessions are not enabled yet." : "Windows could not report child-session support. Check launcher.log.", false, false);
             window.ShowGuidance("One-time desktop setup", "Run scripts\\setup.ps1 once: it enables the Windows Annex desktop and registers the Annex helper. Setup / repair re-applies the Windows settings later. Windows may ask for administrator approval. A streaming host is optional.");
@@ -89,7 +95,23 @@ sealed class LauncherApplication : IDisposable
         }
     }
 
-    public int Run() { timer.Start(); watch.Start(); Application.Run(window); return 0; }
+    // Environment.OSVersion reports 6.2 without a compatibility manifest; the registry has the real build.
+    static string WindowsVersion()
+    {
+        try {
+            const string key = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion";
+            string build = Microsoft.Win32.Registry.GetValue(key, "CurrentBuild", "") as string ?? "";
+            int number; int.TryParse(build, out number);
+            return "Windows " + (number >= 22000 ? "11" : "10") + " " + Microsoft.Win32.Registry.GetValue(key, "EditionID", "") + " " + Microsoft.Win32.Registry.GetValue(key, "DisplayVersion", "") + " build " + build + "." + Microsoft.Win32.Registry.GetValue(key, "UBR", "");
+        } catch (Exception) { return Environment.OSVersion.VersionString; }
+    }
+    public int Run() {
+        timer.Start(); watch.Start();
+        try { Application.Run(window); }
+        // A menu that WinForms still tracks after the window closed must not turn a normal exit into an error.
+        catch (ObjectDisposedException ex) { if (!window.IsDisposed) throw; Program.Log("ignored after close: " + ex.Message.Split('\n')[0]); }
+        return 0;
+    }
     void Show() { window.Show(); window.WindowState = FormWindowState.Normal; window.Activate(); }
     bool TryOpen(string target)
     {
@@ -120,10 +142,16 @@ sealed class LauncherApplication : IDisposable
             // Saved only once it has signed in (see Poll), so a typo is never remembered.
             passwordUnverified = true;
         }
-        reachedDesktop = false;
+        reachedDesktop = false; disconnectReason = 0;
         try {
             if (rdp == null) {
                 rdp = new RdpBox(); window.AttachViewer(rdp); rdp.CreateControl(); ocx = rdp.Ocx;
+                // A refused password must come back to Annex as a disconnect. Windows' own "Your credentials did not
+                // work" prompt would block the viewer, and whatever is typed there never reaches Annex.
+                try { ((IMsRdpClientNonScriptable5)rdp.Ocx).put_AllowPromptingForCredentials(false); }
+                catch (Exception ex) { Program.Log("credential prompt setting: " + ex.Message); }
+                try { disconnectEvents = new AxHost.ConnectionPointCookie(rdp.Ocx, new RdpDisconnectSink(reason => { disconnectReason = reason; Program.Log("viewer disconnect reason " + reason); }), typeof(IRdpClientEvents)); }
+                catch (Exception ex) { Program.Log("disconnect events: " + ex.Message); }
                 scale = new RdpScaleSettings(name => { object value; ((IMsRdpExtendedSettings)rdp.Ocx).get_Property(name, out value); return value; }, (name, value) => { ((IMsRdpExtendedSettings)rdp.Ocx).put_Property(name, ref value); });
             }
             ocx.Server = "localhost"; ocx.UserName = account; ocx.AdvancedSettings2.ClearTextPassword = password;
@@ -154,7 +182,7 @@ sealed class LauncherApplication : IDisposable
     void Reconnect()
     {
         if (ending || !setupReady) return;
-        requests.Update(0, false); child = 0;
+        requests.Update(0, false); child = 0; DropPending();
         try { if (State() != 0) { wantReconnect = true; ocx.Disconnect(); lastAttempt = clock.ElapsedMilliseconds - 6001; } else Connect(); }
         catch (Exception ex) { window.SetNotice("Reconnect failed: " + ex.Message); }
     }
@@ -169,9 +197,12 @@ sealed class LauncherApplication : IDisposable
         if (ending || !setupReady) return;
         int state = State(); uint actual = 0;
         if (state == 0 && lastState != 0 && SignedOut()) { lastState = state; return; }
+        if (state == 0 && !reachedDesktop && SignInFailure.IsSignInFailure(disconnectReason)) { lastState = state; SignInRefused(disconnectReason); return; }
         if (state == 0 && passwordUnverified && !reachedDesktop && clock.ElapsedMilliseconds - lastAttempt > 3000) { lastState = state; SignInFailed(); return; }
         if (state == 1 && !reachedDesktop) {
             reachedDesktop = true;
+            // Replace any earlier "Sign-in failed" notice.
+            window.SetNotice((passwordUnverified ? "Signed in. Your password is saved for next time." : "Signed in.") + (graphicsNotice != null ? " " + graphicsNotice : ""));
             if (passwordUnverified) { Program.SavePassword(password); passwordUnverified = false; }
         }
         lastState = state;
@@ -194,9 +225,14 @@ sealed class LauncherApplication : IDisposable
         if (state == 0 && wantReconnect && clock.ElapsedMilliseconds - lastAttempt > 6000) Connect();
     }
     // Routine status polls are quiet: they don't disable the buttons while the helper answers.
+    // A user action that arrives while a request is running (often the silent 2 s status poll) waits for it instead of being dropped.
+    AgentRequest pendingRequest; bool pendingConfirm; string graphicsNotice;
+    // Queued clicks belong to the desktop they were made for.
+    void DropPending() { pendingRequest = null; pendingConfirm = false; }
     async void RequestHost(AgentRequest request, bool quiet = false)
     {
-        if (ending || inFlight || !StillConnected(child)) return;
+        if (ending || !StillConnected(child)) return;
+        if (inFlight) { if (!quiet) pendingRequest = request; return; }
         uint requestedChild = child; int token = requests.Generation;
         inFlight = true; if (!quiet) window.SetBusy(true); bool ask = false;
         try {
@@ -212,12 +248,21 @@ sealed class LauncherApplication : IDisposable
         }
         catch (Exception ex) { if (!window.IsDisposed && !ending && !HelperStarting) window.SetNotice("Host check failed: " + ex.Message); }
         finally { inFlight = false; if (!quiet && !window.IsDisposed) window.SetBusy(false); }
-        if (ask && !ending && !window.IsDisposed) ConfirmStart();
+        if (ask) pendingConfirm = true;
+        FlushPending();
+    }
+    void FlushPending()
+    {
+        if (ending || window.IsDisposed || inFlight) return;
+        AgentRequest next = pendingRequest; pendingRequest = null;
+        if (next != null) { RequestHost(next); return; }
+        if (pendingConfirm) { pendingConfirm = false; ConfirmStart(); }
     }
     void ConfirmStart()
     {
         var approval = new SessionConfirmation(requests, child);
         string approvedSelection = selection;
+        if (inFlight && !promptOpen) { pendingConfirm = true; return; }
         if (string.IsNullOrEmpty(approvedSelection) || promptOpen || inFlight || !approval.CanProceed(child) || !StillConnected(approval.Child) || !LauncherPolicy.CanStartHost(host, true)) return;
         promptOpen = true;
         bool answer;
@@ -274,7 +319,7 @@ sealed class LauncherApplication : IDisposable
             using (var process = Process.Start(new ProcessStartInfo(Application.ExecutablePath, "-setup") { UseShellExecute = true, WorkingDirectory = root, WindowStyle = ProcessWindowStyle.Hidden })) {
                 if (process == null) throw new IOException("Windows did not start setup."); await Task.Run(() => process.WaitForExit());
                 if (ending || window.IsDisposed) return;
-                bool enabled; setupReady = process.ExitCode == 0 && Program.ChildSessionsEnabled(out enabled) && enabled;
+                bool enabled; setupReady = process.ExitCode == 0 && Program.ChildSessionsEnabled(out enabled) && enabled; if (HardwareGraphics.Enabled()) graphicsNotice = null;
                 if (setupReady && State() == 0) { window.SetSession("Ready", "Windows desktop setup is ready. A streaming host is optional.", false, true); window.ShowGuidance("Ready for a second desktop", "Choose Start desktop. If a helper is already running from an older EXE, restart it inside the Annex desktop after saving your work."); }
                 window.SetNotice(setupReady ? "Setup is ready. Existing Annex desktops may need their helper restarted; your apps were left open." : "Setup did not finish. Review the setup message and launcher.log, then retry.");
             }
@@ -311,6 +356,7 @@ sealed class LauncherApplication : IDisposable
             if (!picker.IsDisposed && requests.Accepts(token, target) && StillConnected(target)) picker.SetApps(reply.Apps, reply.Status.State == HostState.Unavailable ? reply.Status.Message : reply.Diagnostic);
         } catch (Exception ex) { if (!picker.IsDisposed) picker.SetApps(new AgentApp[0], ex.Message); }
         finally { inFlight = false; if (!window.IsDisposed) window.SetBusy(false); }
+        FlushPending();
     }
     // The Annex desktop was signed out (End session, or Sign out inside it): close instead of
     // reconnecting, which would start a fresh desktop.
@@ -324,19 +370,26 @@ sealed class LauncherApplication : IDisposable
         return true;
     }
     // A newly typed password didn't get the desktop to connect: forget it (it was never saved) and ask again next time.
-    void SignInFailed()
+    void SignInFailed() { SignInRefused(0); }
+    // Windows refused the sign-in (reason from the viewer, 0 if unknown). Never retry it on a timer: a stale
+    // saved password would be sent every few seconds and can lock the account.
+    void SignInRefused(int reason)
     {
-        Program.Log("sign-in with a newly entered password failed; it was not saved");
-        password = null; passwordUnverified = false; wantReconnect = false; viewerShown = false;
-        window.SetSession("Sign-in failed", "Windows didn't accept that password. Choose Start desktop to try again.", false, true);
-        window.ShowGuidance("That password didn't work", "Use your Windows account password for " + Environment.MachineName + "\\" + Environment.UserName + ", not your Windows Hello PIN. Choose Start desktop to try again.");
-        window.SetNotice("Sign-in failed. Nothing was saved.");
+        bool cleared = false;
+        if (passwordUnverified) password = null; // typed just now and never saved
+        else if (SignInFailure.ForgetPassword(reason)) { password = null; cleared = Program.ClearPassword(); }
+        Program.Log("sign-in refused (reason " + reason + ")" + (passwordUnverified ? "; the new password was not saved" : cleared ? "; saved password removed" : ""));
+        passwordUnverified = false; wantReconnect = false; viewerShown = false; disconnectReason = 0;
+        bool locked = reason == SignInFailure.AccountLockedOut;
+        window.SetSession("Sign-in failed", locked ? "Windows locked this account for now." : "Windows didn't accept the sign-in. Choose Start desktop to try again.", false, true);
+        window.ShowGuidance(locked ? "Account locked for now" : "That password didn't work", SignInAccount.Current().FailureHelp(Environment.MachineName + "\\" + Environment.UserName, reason));
+        window.SetNotice(cleared ? "Sign-in failed. The saved password was removed; Annex asks for it next time." : "Sign-in failed. Nothing was saved.");
     }
     // Back to the "Start desktop" state after a sign-out; Annex stays open.
     void ReturnToStart(string notice)
     {
         signingOut = false; ending = false; wantReconnect = false; viewerShown = false; lastState = 0; child = 0;
-        requests.Update(0, false);
+        requests.Update(0, false); DropPending();
         try { if (State() != 0) ocx.Disconnect(); } catch (Exception) { }
         host = new HostSnapshot(HostState.Waiting, "Start the Annex desktop to check its host.", 0); window.SetHost(host);
         window.SetEnding(false);
@@ -357,7 +410,7 @@ sealed class LauncherApplication : IDisposable
         if (!approval.CanProceed(child) || !StillConnected(approval.Child)) {
             window.SetNotice("The desktop connection changed. Review it and choose End session again."); return;
         }
-        bool previousReconnect = wantReconnect; ending = true; wantReconnect = false; requests.Update(0, false); window.SetEnding(true);
+        bool previousReconnect = wantReconnect; ending = true; wantReconnect = false; requests.Update(0, false); DropPending(); window.SetEnding(true);
         // Cover the viewer first: it paints white while the desktop signs out.
         viewerShown = false; window.ShowGuidance("Signing out...", "Closing the Annex desktop and the apps running in it."); window.Update();
         try {

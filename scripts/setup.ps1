@@ -24,22 +24,32 @@ $launcher = Join-Path $root 'Annex.exe'
 if (-not ($NoBuild -and (Test-Path -LiteralPath $launcher -PathType Leaf))) { & (Join-Path $PSScriptRoot 'build.ps1') }
 if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw 'Annex.exe is missing after build.' }
 
-# Remember the Windows settings as they were before Annex, once, so uninstall.ps1 can put them back.
+# Remember the Windows settings as they were before Annex, so uninstall.ps1 can put them back. Each value is
+# recorded once: a value already in setup-state.json (also one written by Setup / repair in Annex.exe) is kept.
 $statePath = Join-Path $root 'setup-state.json'
-if (-not (Test-Path -LiteralPath $statePath)) {
-    try {
-        Add-Type -Namespace AnnexSetup -Name Wts -MemberDefinition '[DllImport("wtsapi32.dll")] public static extern bool WTSIsChildSessionsEnabled(out bool enabled);'
-        $childSessions = $false; [void][AnnexSetup.Wts]::WTSIsChildSessionsEnabled([ref]$childSessions)
-        $ts = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
-        [pscustomobject]@{
-            fDenyTSConnections = (Get-ItemProperty $ts -ErrorAction SilentlyContinue).fDenyTSConnections
-            DWMFRAMEINTERVAL = (Get-ItemProperty "$ts\WinStations" -ErrorAction SilentlyContinue).DWMFRAMEINTERVAL
-            SuppressWhenMinimized = (Get-ItemProperty 'HKCU:\Software\Microsoft\Terminal Server Client' -ErrorAction SilentlyContinue).RemoteDesktop_SuppressWhenMinimized
-            ChildSessions = $childSessions
-            RemoteDesktopRulesEnabled = @(Get-NetFirewallRule -Group '@FirewallAPI.dll,-28752' -ErrorAction SilentlyContinue | Where-Object Enabled -eq 'True' | ForEach-Object Name)
-        } | ConvertTo-Json | Set-Content -LiteralPath $statePath
-    } catch { Write-Warning "Could not record the original Windows settings: $_" }
-}
+try {
+    $state = if (Test-Path -LiteralPath $statePath) { Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json } else { New-Object psobject }
+    $ts = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
+    $original = [ordered]@{
+        fDenyTSConnections = { (Get-ItemProperty $ts -ErrorAction SilentlyContinue).fDenyTSConnections }
+        DWMFRAMEINTERVAL = { (Get-ItemProperty "$ts\WinStations" -ErrorAction SilentlyContinue).DWMFRAMEINTERVAL }
+        SuppressWhenMinimized = { (Get-ItemProperty 'HKCU:\Software\Microsoft\Terminal Server Client' -ErrorAction SilentlyContinue).RemoteDesktop_SuppressWhenMinimized }
+        ChildSessions = {
+            Add-Type -Namespace AnnexSetup -Name Wts -MemberDefinition '[DllImport("wtsapi32.dll")] public static extern bool WTSIsChildSessionsEnabled(out bool enabled);'
+            $enabled = $false; [void][AnnexSetup.Wts]::WTSIsChildSessionsEnabled([ref]$enabled); $enabled
+        }
+        RemoteDesktopRulesEnabled = { ,@(Get-NetFirewallRule -Group '@FirewallAPI.dll,-28752' -ErrorAction SilentlyContinue | Where-Object Enabled -eq 'True' | ForEach-Object Name) }
+        bEnumerateHWBeforeSW = { (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -ErrorAction SilentlyContinue).bEnumerateHWBeforeSW }
+    }
+    $changed = $false
+    foreach ($name in $original.Keys) {
+        if ($state.PSObject.Properties.Name -contains $name) { continue }
+        # One unreadable setting must not cost the others their record.
+        try { $value = & $original[$name] } catch { Write-Warning "Could not record the original ${name}: $_"; continue }
+        $state | Add-Member -NotePropertyName $name -NotePropertyValue $value; $changed = $true
+    }
+    if ($changed) { $state | ConvertTo-Json | Set-Content -LiteralPath $statePath }
+} catch { Write-Warning "Could not record the original Windows settings: $_" }
 $process = Start-Process -FilePath $launcher -ArgumentList '-setup' -WorkingDirectory $root -Wait -PassThru -WindowStyle Hidden
 if ($process.ExitCode -ne 0) { throw "Desktop setup failed (exit code $($process.ExitCode))." }
 

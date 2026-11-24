@@ -140,7 +140,9 @@ sealed class HostLaunchReceipt
 {
     public readonly int ProcessId; public readonly long StartTimeUtcTicks; public readonly string ProfileIdentity;
     public HostLaunchReceipt(int pid, long ticks, string identity) { ProcessId = pid; StartTimeUtcTicks = ticks; ProfileIdentity = identity; }
-    public bool Matches(HostProcess process, string identity) { return ProcessId > 0 && StartTimeUtcTicks > 0 && ProcessId == process.ProcessId && StartTimeUtcTicks == process.StartTimeUtcTicks && ProfileIdentity == identity; }
+    public bool Matches(HostProcess process, string identity) { return SameProcess(process) && ProfileIdentity == identity; }
+    // The exact process Annex launched with this profile's config, even if its settings were saved since (which changes the identity).
+    public bool SameProcess(HostProcess process) { return ProcessId > 0 && StartTimeUtcTicks > 0 && ProcessId == process.ProcessId && StartTimeUtcTicks == process.StartTimeUtcTicks; }
     public void Save(string path) { Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path, ProcessId.ToString(CultureInfo.InvariantCulture) + "|" + StartTimeUtcTicks.ToString(CultureInfo.InvariantCulture) + "|" + ProfileIdentity, new UTF8Encoding(false)); }
     public static HostLaunchReceipt Load(string path) {
         try { if (new FileInfo(path).Length > 256) return null; string[] parts = File.ReadAllText(path).Split('|'); int pid; long ticks;

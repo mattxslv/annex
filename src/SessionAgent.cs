@@ -144,22 +144,42 @@ static class HostNative
         }
         return result.ToArray();
     }
-    static long ProcessStartTicks(int pid) {
+    internal static long ProcessStartTicks(int pid) {
         IntPtr handle = OpenProcess(0x1000, false, (uint)pid);
         if (handle == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
         try { long created, exited, kernel, user; if (!GetProcessTimes(handle, out created, out exited, out kernel, out user)) throw new Win32Exception(Marshal.GetLastWin32Error()); return DateTime.FromFileTimeUtc(created).Ticks; }
         finally { CloseHandle(handle); }
     }
+    // Ends a host that stopped answering, if it is still that same process. One that runs as administrator needs
+    // the administrator prompt; declining it leaves the process (it holds no ports) until the desktop signs out.
+    public static void EndStalledHost(HostProcess host) {
+        try {
+            if (ProcessStartTicks(host.ProcessId) != host.StartTimeUtcTicks) return; // already gone; the PID was reused
+            using (var process = Process.GetProcessById(host.ProcessId)) { process.Kill(); process.WaitForExit(5000); return; }
+        }
+        catch (ArgumentException) { return; } catch (InvalidOperationException) { return; }
+        catch (Win32Exception) { } // runs as administrator
+        try {
+            if (ProcessStartTicks(host.ProcessId) != host.StartTimeUtcTicks) return;
+            var start = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "taskkill.exe"), "/PID " + host.ProcessId + " /F") { UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
+            using (var killer = Process.Start(start)) if (killer != null) killer.WaitForExit(15000);
+        }
+        catch (Exception ex) { Program.Log("could not end stalled host " + host.ProcessId + ": " + ex.Message); }
+    }
     public static HostLaunchReceipt StartHost(ChildHostProfile profile) {
         if (profile.CurrentIdentity() != profile.Identity) throw new IOException("The host configuration changed. Refresh and confirm startup again.");
         if (HostPorts.Collides(profile.BasePort, HostPorts.Occupied())) throw new IOException("An Annex host TCP or UDP port is already in use. No existing listener was stopped. Close the conflicting app or change the host configuration.");
         HostLaunchSpec spec = HostProfiles.Adapter(profile.Installation).BuildLaunch(profile);
-        bool elevate = ElevationPolicy.CanElevate(spec.Executable, profile.ConfigPath);
-        ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
-        var start = new ProcessStartInfo(spec.Executable, NativeArguments.Join(spec.Arguments)) {
-            UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = spec.WorkingDirectory
-        };
-        using (var process = Process.Start(start)) {
+        Process started;
+        using (IDisposable held = ElevationPolicy.Hold(spec.Executable, profile.ConfigPath)) {
+            bool elevate = held != null && ElevationPolicy.CanElevate(spec.Executable, profile.ConfigPath);
+            ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
+            var start = new ProcessStartInfo(spec.Executable, NativeArguments.Join(spec.Arguments)) {
+                UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = spec.WorkingDirectory
+            };
+            started = Process.Start(start);
+        }
+        using (var process = started) {
             if (process == null) throw new IOException("Windows did not return a host process.");
             long ticks = ProcessStartTicks(process.Id);
             if (process.WaitForExit(1200)) throw new IOException("The host exited during startup (exit code " + process.ExitCode + "). Check " + Path.Combine(profile.DataDirectory, "sunshine.log") + ".");
@@ -169,12 +189,16 @@ static class HostNative
     }
     public static void StartHost(HostConfiguration config)
     {
-        bool elevate = ElevationPolicy.CanElevate(config.ExecutablePath, config.ConfigPath);
-        ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
-        var start = new ProcessStartInfo(config.ExecutablePath, "\"" + config.ConfigPath + "\"") {
-            UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = Path.GetDirectoryName(config.ExecutablePath)
-        };
-        using (var process = Process.Start(start)) {
+        Process started;
+        using (IDisposable held = ElevationPolicy.Hold(config.ExecutablePath, config.ConfigPath)) {
+            bool elevate = held != null && ElevationPolicy.CanElevate(config.ExecutablePath, config.ConfigPath);
+            ElevationPolicy.LastLaunchNote = elevate ? null : ElevationPolicy.UnelevatedNote;
+            var start = new ProcessStartInfo(config.ExecutablePath, "\"" + config.ConfigPath + "\"") {
+                UseShellExecute = true, Verb = elevate ? "runas" : null, WindowStyle = ProcessWindowStyle.Hidden, WorkingDirectory = Path.GetDirectoryName(config.ExecutablePath)
+            };
+            started = Process.Start(start);
+        }
+        using (var process = started) {
             if (process == null) throw new IOException("Windows did not return a Sunshine process.");
             if (process.WaitForExit(1200)) throw new IOException("Sunshine exited during startup (exit code " + process.ExitCode + "). Check its configuration and logs.");
         }
@@ -213,6 +237,7 @@ sealed class AgentClient
         catch (InvalidDataException) { return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper upgrade/repair required. Restart this folder's Annex.exe -agent inside the Annex desktop, or use Setup / repair and reconnect after saving work. Folder: " + root, 0) }; }
         catch (Exception ex) {
             if (ForeignHelperRunning(childSessionId)) return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, OutdatedHelper, 0), Diagnostic = "" };
+            if (HelperStartup.Disabled()) return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, HelperStartup.DisabledMessage, 0), Diagnostic = "" };
             return new AgentReply { Status = new HostSnapshot(HostState.Unavailable, "Annex helper unavailable for " + root + ". Use Setup / repair, then restart this folder's helper inside the Annex desktop. " + ex.Message, 0) };
         }
     }
@@ -282,5 +307,19 @@ static class SessionAgent
             }
         }
         catch (Exception ex) { Log(baseDirectory, "helper failed: " + ex.Message); return 1; }
+    }
+}
+
+// The helper starts from Startup\annex-helper.cmd. Turning it off in Task Manager / Settings > Startup apps
+// keeps it from starting in the Annex desktop, and the launcher would only report "unavailable".
+static class HelperStartup
+{
+    public const string DisabledMessage = "Windows has the Annex helper turned off in Startup apps. Turn on \"annex-helper\" in Settings > Apps > Startup (or Task Manager > Startup apps), then End session and Start desktop.";
+    public static bool Disabled()
+    {
+        try {
+            var value = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder", "annex-helper.cmd", null) as byte[];
+            return value != null && value.Length > 0 && (value[0] & 1) == 1; // 02/06 on, 03/07 off
+        } catch (Exception) { return false; }
     }
 }

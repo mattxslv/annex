@@ -29,16 +29,43 @@ try {
         $statePath = Join-Path $root 'setup-state.json'
         if (Test-Path -LiteralPath $statePath) {
             $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+            if ($null -eq $state) { throw 'setup-state.json is empty.' }
+            # Each setting on its own: one that fails must not leave the rest changed.
+            $failed = New-Object 'Collections.Generic.List[string]'
+            function Restore([string]$what, [scriptblock]$step) { try { & $step } catch { Write-Warning "Could not restore ${what}: $_"; $failed.Add($what) } }
+            function Set-Dword([string]$key, [string]$name, $value) {
+                if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
+                Set-ItemProperty -LiteralPath $key -Name $name -Value ([int]$value) -Type DWord
+            }
             $ts = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
-            if ($null -ne $state.fDenyTSConnections) { Set-ItemProperty $ts -Name fDenyTSConnections -Value ([int]$state.fDenyTSConnections) }
-            if ($null -ne $state.DWMFRAMEINTERVAL) { Set-ItemProperty "$ts\WinStations" -Name DWMFRAMEINTERVAL -Value ([int]$state.DWMFRAMEINTERVAL) -Type DWord }
-            else { Remove-ItemProperty "$ts\WinStations" -Name DWMFRAMEINTERVAL -ErrorAction SilentlyContinue }
-            $client = 'HKCU:\Software\Microsoft\Terminal Server Client'
-            if ($null -ne $state.SuppressWhenMinimized) { Set-ItemProperty $client -Name RemoteDesktop_SuppressWhenMinimized -Value ([int]$state.SuppressWhenMinimized) -Type DWord }
-            else { Remove-ItemProperty $client -Name RemoteDesktop_SuppressWhenMinimized -ErrorAction SilentlyContinue }
-            foreach ($name in @($state.RemoteDesktopRulesEnabled)) { if ($name) { Enable-NetFirewallRule -Name $name -ErrorAction SilentlyContinue } }
-            Add-Type -Namespace AnnexUninstall -Name Wts -MemberDefinition '[DllImport("wtsapi32.dll")] public static extern bool WTSEnableChildSessions(bool enable);'
-            [void][AnnexUninstall.Wts]::WTSEnableChildSessions([bool]$state.ChildSessions)
+            Restore 'fDenyTSConnections' { if ($null -ne $state.fDenyTSConnections) { Set-Dword $ts fDenyTSConnections $state.fDenyTSConnections } }
+            Restore 'DWMFRAMEINTERVAL' {
+                if ($null -ne $state.DWMFRAMEINTERVAL) { Set-Dword "$ts\WinStations" DWMFRAMEINTERVAL $state.DWMFRAMEINTERVAL }
+                else { Remove-ItemProperty "$ts\WinStations" -Name DWMFRAMEINTERVAL -ErrorAction SilentlyContinue }
+            }
+            Restore 'bEnumerateHWBeforeSW' {
+                if ($state.PSObject.Properties.Name -contains 'bEnumerateHWBeforeSW') {
+                    $policy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+                    if ($null -ne $state.bEnumerateHWBeforeSW) { Set-Dword $policy bEnumerateHWBeforeSW $state.bEnumerateHWBeforeSW }
+                    else { Remove-ItemProperty $policy -Name bEnumerateHWBeforeSW -ErrorAction SilentlyContinue }
+                }
+            }
+            Restore 'SuppressWhenMinimized' {
+                $client = 'HKCU:\Software\Microsoft\Terminal Server Client'
+                if ($null -ne $state.SuppressWhenMinimized) { Set-Dword $client RemoteDesktop_SuppressWhenMinimized $state.SuppressWhenMinimized }
+                else { Remove-ItemProperty $client -Name RemoteDesktop_SuppressWhenMinimized -ErrorAction SilentlyContinue }
+            }
+            Restore 'Remote Desktop firewall rules' {
+                # setup-state.json is user-writable: only re-enable rules that really are Remote Desktop rules.
+                $rdpRules = @(Get-NetFirewallRule -Group '@FirewallAPI.dll,-28752' -ErrorAction SilentlyContinue | ForEach-Object Name)
+                foreach ($name in @($state.RemoteDesktopRulesEnabled)) { if ($name -and $rdpRules -contains $name) { Enable-NetFirewallRule -Name $name -ErrorAction SilentlyContinue } }
+            }
+            Restore 'ChildSessions' {
+                # No record means Annex turned them on: [bool]$null switches them off.
+                Add-Type -Namespace AnnexUninstall -Name Wts -MemberDefinition '[DllImport("wtsapi32.dll")] public static extern bool WTSEnableChildSessions(bool enable);'
+                [void][AnnexUninstall.Wts]::WTSEnableChildSessions([bool]$state.ChildSessions)
+            }
+            if ($failed.Count -gt 0) { Write-Warning ('Not restored: ' + ($failed -join ', ')); exit 1 }
             Write-Host 'Windows settings restored to their state before Annex'
         } else { Write-Host 'No setup-state.json: Windows settings left as they are' }
         exit 0

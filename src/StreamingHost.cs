@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
@@ -88,6 +89,17 @@ sealed class HostController
         try { return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e => e.Port == port + 1); }
         catch (Exception) { return true; }
     };
+    // Process ID that listens on a TCP port (0 if none). Replaceable for tests.
+    public static Func<int, int> ListenerProcess = TcpListeners.OwnerOf;
+    // Sunshine restarts itself only through its Windows service. Started by Annex, "Apply"/"Restart" in its web page
+    // stops it, and it can hang half-closed with no listeners. Past this age without a web page it is treated as stalled.
+    public static TimeSpan StallAfter = TimeSpan.FromSeconds(150);
+    public static Func<DateTime> UtcNow = () => DateTime.UtcNow;
+    const string StalledMessage = "Sunshine stopped answering. This happens after Apply or Restart on its web page: Sunshine only comes back by itself when it runs as a Windows service. Choose Start to run it again.";
+    // Shared by every controller in this helper, so a rebuilt controller (after a settings save) still knows them.
+    static readonly Dictionary<string, HostProcess> stalled = new Dictionary<string, HostProcess>();
+    public static Action<HostProcess> EndStalled = HostNative.EndStalledHost;
+    int webSeenProcess;
     readonly object gate = new object();
     readonly HostConfiguration config;
     readonly int sessionId;
@@ -142,25 +154,53 @@ sealed class HostController
         bool unknown = false;
         try
         {
-            foreach (HostProcess process in processes())
+            HostProcess[] list = processes();
+            lock (stalled) foreach (string key in stalled.Keys.Where(k => k.StartsWith(StallPrefix, StringComparison.Ordinal) && !list.Any(p => StallKey(p) == k)).ToArray()) stalled.Remove(key);
+            foreach (HostProcess process in list)
             {
                 if (process.SessionId >= 0 && process.SessionId != sessionId) continue;
                 if (process.InspectionDenied) { unknown = true; continue; }
                 if (process.SessionId == sessionId && SamePath(process.ExecutablePath, config.ExecutablePath))
                 {
-                    if (profile != null && (process.ConfigPath != null ? !SamePath(process.ConfigPath, profile.ConfigPath) : receipt == null || !receipt.Matches(process, profile.Identity))) { unknown = true; continue; }
-                    lastError = null;
+                    if (IsStalled(process)) continue;
+                    if (profile != null && !OwnProcess(process, port)) { unknown = true; continue; }
                     // Sunshine needs ~30 s (encoder probing) before its web UI and pairing answer.
-                    if (!WebReady(port)) return new HostSnapshot(HostState.Starting, "Sunshine is starting up. Settings and pairing are ready in about half a minute.", port);
+                    if (!WebReady(port)) {
+                        bool lostWeb = webSeenProcess == process.ProcessId;
+                        bool tooLong = process.StartTimeUtcTicks > 0 && UtcNow().Ticks - process.StartTimeUtcTicks > StallAfter.Ticks;
+                        if (!starting && (lostWeb || tooLong)) { lock (stalled) stalled[StallKey(process)] = process; webSeenProcess = 0; return new HostSnapshot(HostState.Error, StalledMessage, port); }
+                        lastError = null;
+                        return new HostSnapshot(HostState.Starting, "Sunshine is starting up. Settings and pairing are ready in about half a minute.", port);
+                    }
+                    lastError = null; webSeenProcess = process.ProcessId;
                     return new HostSnapshot(HostState.Running, "The host is running in the Annex desktop. Streaming still depends on host capture and client settings." + (ElevationPolicy.LastLaunchNote ?? ""), port);
                 }
             }
         }
         catch (Exception ex) { return new HostSnapshot(HostState.Unknown, "Cannot inspect the host process: " + ex.Message, port); }
+        // During our own launch the new process shows up before its receipt is saved.
+        if (unknown && starting) return new HostSnapshot(HostState.Starting, "Starting Sunshine. Approve Windows elevation inside the Annex desktop if asked.", port);
+        if (StalledHosts().Length > 0 && !starting && lastError == null) return new HostSnapshot(HostState.Error, StalledMessage, port);
         if (unknown) return new HostSnapshot(HostState.Unknown, "A host may already be running, but its process or configuration could not be verified. Another will not be started. Restart that host through Annex to identify its settings.", 0);
         if (starting) return new HostSnapshot(HostState.Starting, "Starting Sunshine. Approve Windows elevation inside the Annex desktop if asked.", port);
         if (lastError != null) return new HostSnapshot(HostState.Error, lastError, port);
         return new HostSnapshot(HostState.Stopped, "Sunshine is off in the Annex desktop. Start it to make this desktop available to your client.", port);
+    }
+
+    // Ours if it is the process Annex launched, or if it serves this profile's own web port: saving settings in the
+    // host's web page changes the profile identity, and "Apply" restarts the host under a new process ID.
+    string StallPrefix { get { return (config.ExecutablePath ?? "").ToUpperInvariant() + "|"; } }
+    string StallKey(HostProcess process) { return StallPrefix + process.ProcessId + ":" + process.StartTimeUtcTicks; }
+    bool IsStalled(HostProcess process) { lock (stalled) return stalled.ContainsKey(StallKey(process)); }
+    HostProcess[] StalledHosts() { lock (stalled) return stalled.Where(e => e.Key.StartsWith(StallPrefix, StringComparison.Ordinal)).Select(e => e.Value).ToArray(); }
+
+    bool OwnProcess(HostProcess process, int port)
+    {
+        if (process.ConfigPath != null) return SamePath(process.ConfigPath, profile.ConfigPath);
+        if (receipt != null && receipt.SameProcess(process)) return true;
+        int owner = 0;
+        try { if (HostConfiguration.IsValidPort(port)) owner = ListenerProcess(port + 1); } catch (Exception) { }
+        return owner > 0 && owner == process.ProcessId;
     }
 
     public HostSnapshot RequestStart()
@@ -174,6 +214,8 @@ sealed class HostController
             var worker = new Thread(delegate() {
                 string error = null;
                 try {
+                    // Close a host that stopped answering first, so it does not linger next to the new one.
+                    foreach (HostProcess old in StalledHosts()) { try { EndStalled(old); } catch (Exception) { } }
                     if (profile == null) launch();
                     else {
                         HostLaunchReceipt launched = profileLaunch();
@@ -194,5 +236,36 @@ sealed class HostController
             worker.Start();
             return new HostSnapshot(HostState.Starting, "Starting Sunshine. Check the Annex desktop for the Windows elevation prompt.", current.BasePort);
         }
+    }
+}
+
+static class TcpListeners
+{
+    [System.Runtime.InteropServices.DllImport("iphlpapi.dll")]
+    static extern uint GetExtendedTcpTable(IntPtr table, ref int size, bool order, int family, int tableClass, uint reserved);
+
+    // Owner of an IPv4 or IPv6 TCP listener on the port, 0 if none.
+    public static int OwnerOf(int port)
+    {
+        foreach (int family in new[] { 2, 23 }) {
+            int rowSize = family == 2 ? 24 : 56, portOffset = family == 2 ? 8 : 20, pidOffset = family == 2 ? 20 : 52;
+            int size = 0; GetExtendedTcpTable(IntPtr.Zero, ref size, false, family, 3 /* TCP_TABLE_OWNER_PID_LISTENER */, 0);
+            for (int attempt = 0; attempt < 3 && size > 0; attempt++) {
+                IntPtr table = System.Runtime.InteropServices.Marshal.AllocHGlobal(size);
+                try {
+                    uint result = GetExtendedTcpTable(table, ref size, false, family, 3, 0);
+                    if (result == 122) continue; // grew meanwhile
+                    if (result != 0) break;
+                    int count = System.Runtime.InteropServices.Marshal.ReadInt32(table);
+                    for (int i = 0; i < count; i++) {
+                        IntPtr row = table + 4 + i * rowSize;
+                        int raw = System.Runtime.InteropServices.Marshal.ReadInt32(row, portOffset);
+                        if (((raw & 0xFF) << 8 | (raw >> 8) & 0xFF) == port) return System.Runtime.InteropServices.Marshal.ReadInt32(row, pidOffset);
+                    }
+                    break;
+                } finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(table); }
+            }
+        }
+        return 0;
     }
 }

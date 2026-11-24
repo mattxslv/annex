@@ -15,6 +15,33 @@ interface IMsRdpExtendedSettings
     void get_Property([MarshalAs(UnmanagedType.BStr)] string name, out object value);
 }
 
+// Non-scriptable RDP client settings. Only AllowPromptingForCredentials is used; the placeholders keep
+// the vtable layout of mstscax.dll's typelib (slots exclude IUnknown's three).
+[ComImport, Guid("4F6996D5-D7B1-412C-B0FF-063718566907"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMsRdpClientNonScriptable5
+{
+    void _00(); void _01(); void _02(); void _03(); void _04(); void _05(); void _06(); void _07(); void _08(); void _09();
+    void _10(); void _11(); void _12(); void _13(); void _14(); void _15(); void _16(); void _17(); void _18(); void _19();
+    void _20(); void _21(); void _22(); void _23(); void _24(); void _25(); void _26(); void _27(); void _28(); void _29();
+    void _30(); void _31(); void _32(); void _33(); void _34(); void _35(); void _36(); void _37(); void _38(); void _39();
+    void _40(); void _41(); void _42(); void _43(); void _44(); void _45(); void _46(); void _47(); void _48(); void _49();
+    void _50(); void _51(); void _52(); void _53(); void _54(); void _55(); void _56(); void _57(); void _58(); void _59();
+    void put_AllowPromptingForCredentials([MarshalAs(UnmanagedType.VariantBool)] bool value);
+    void get_AllowPromptingForCredentials([MarshalAs(UnmanagedType.VariantBool)] out bool value);
+}
+
+// IMsTscAxEvents: only OnDisconnected is needed, for the reason a sign-in failed.
+[ComImport, Guid("336D5562-EFA8-482E-8CB3-C5C0FC7A7DB6"), InterfaceType(ComInterfaceType.InterfaceIsIDispatch)]
+public interface IRdpClientEvents { [DispId(4)] void OnDisconnected(int reason); }
+
+[ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+public sealed class RdpDisconnectSink : IRdpClientEvents
+{
+    readonly Action<int> handler;
+    public RdpDisconnectSink(Action<int> handler) { this.handler = handler; }
+    public void OnDisconnected(int reason) { handler(reason); }
+}
+
 public class RdpBox : AxHost
 {
     // Microsoft RDP Client Control (MsTscAx)
@@ -99,32 +126,45 @@ static class Program
     internal static string PromptPassword(string account)
     {
         TextBox tb;
-        using (var d = PasswordForm(account, out tb, PasswordRejected)) return d.ShowDialog() == DialogResult.OK && tb.Text.Length > 0 ? tb.Text : null;
+        using (var d = PasswordForm(account, out tb, PasswordRejected, SignInAccount.Current())) return d.ShowDialog() == DialogResult.OK ? tb.Text : null;
     }
 
-    internal static Form PasswordForm(string account, out TextBox tb, Func<string, bool> rejected = null)
+    internal static Form PasswordForm(string account, out TextBox tb, Func<string, bool> rejected = null, SignInAccount info = null)
     {
-        var d = new Form { Text = "Annex - one-time setup", ClientSize = new Size(460, 222), FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, BackColor = Theme.Background, ForeColor = Theme.Text, Font = new Font("Segoe UI", 9.5f), AutoScaleMode = AutoScaleMode.Dpi, AutoScaleDimensions = new SizeF(96, 96) };
+        if (info == null) info = new SignInAccount(false, null, false);
+        int extra = info.PasswordlessOnly ? 40 : 0;
+        var d = new Form { Text = "Annex - one-time setup", ClientSize = new Size(460, 236 + extra), FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen, MaximizeBox = false, MinimizeBox = false, BackColor = Theme.Background, ForeColor = Theme.Text, Font = new Font("Segoe UI", 9.5f), AutoScaleMode = AutoScaleMode.Dpi, AutoScaleDimensions = new SizeF(96, 96) };
         Theme.DarkChrome(d);
         var mark = new LogoMark { Left = 20, Top = 20, Size = new Size(40, 40) };
         var title = new Label { Text = "Sign in to the Annex desktop", Left = 72, Top = 20, AutoSize = true, Font = new Font("Segoe UI Semibold", 13), ForeColor = Theme.Text };
-        var lbl = new Label { Text = "Windows password for " + account + ". Stored DPAPI-encrypted for this user only.", Left = 72, Top = 50, Width = 370, Height = 40, ForeColor = Theme.Muted };
-        tb = new TextBox { UseSystemPasswordChar = true, AccessibleName = "Windows password" }; var box = tb;
-        var field = new FieldBox(tb) { Left = 72, Top = 96, Width = 368 };
-        var error = new Label { Left = 72, Top = 134, Width = 368, Height = 20, ForeColor = Theme.Bad, UseMnemonic = false };
-        var ok = new AnnexButton { Text = "Save", Kind = ButtonKind.Primary, Left = 260, Top = 164, Size = new Size(88, 36) };
-        var cancel = new AnnexButton { Text = "Cancel", Kind = ButtonKind.Secondary, Left = 352, Top = 164, Size = new Size(88, 36), DialogResult = DialogResult.Cancel };
-        string refused = null;
+        var lbl = new Label { Text = info.PasswordHint(account) + " Stored DPAPI-encrypted for this user only.", Left = 72, Top = 50, Width = 370, Height = 54, ForeColor = Theme.Muted, UseMnemonic = false };
+        tb = new TextBox { UseSystemPasswordChar = true, AccessibleName = info.MicrosoftAccount ? "Microsoft account password" : "Windows password" }; var box = tb;
+        var field = new FieldBox(tb) { Left = 72, Top = 110, Width = 368 };
+        var error = new Label { Left = 72, Top = 148, Width = 368, Height = 20, ForeColor = Theme.Bad, UseMnemonic = false };
+        var controls = new System.Collections.Generic.List<Control> { mark, title, lbl, field, error };
+        if (info.PasswordlessOnly) {
+            // This Windows setting blocks every password sign-in, including the Annex desktop's.
+            const string link = "Turn it off in Sign-in options";
+            var hello = new LinkLabel { Text = "Windows allows only Windows Hello sign-in for Microsoft accounts on this PC, which blocks passwords. " + link + ".", Left = 72, Top = 172, Width = 368, Height = 36, ForeColor = Theme.Muted, LinkColor = Theme.Accent, ActiveLinkColor = Theme.Accent, UseMnemonic = false };
+            hello.LinkArea = new LinkArea(hello.Text.IndexOf(link, StringComparison.Ordinal), link.Length);
+            hello.LinkClicked += delegate { SignInAccount.OpenSignInOptions(); };
+            controls.Add(hello);
+        }
+        var ok = new AnnexButton { Text = "Save", Kind = ButtonKind.Primary, Left = 260, Top = 178 + extra, Size = new Size(88, 36) };
+        var cancel = new AnnexButton { Text = "Cancel", Kind = ButtonKind.Secondary, Left = 352, Top = 178 + extra, Size = new Size(88, 36), DialogResult = DialogResult.Cancel };
+        string refused = null; bool blankConfirmed = false;
         ok.Click += delegate {
-            if (box.Text.Length == 0) { error.Text = "Enter your Windows password."; return; }
+            // Accounts without a password exist; an empty field needs a second, deliberate Save.
+            if (box.Text.Length == 0 && !blankConfirmed) { blankConfirmed = true; error.Text = "No password? Press Save again to sign in without one."; return; }
             // Saving the same text again overrides the check, in case it misjudges an account type.
-            if (rejected != null && box.Text != refused && rejected(box.Text)) {
+            if (rejected != null && box.Text.Length > 0 && box.Text != refused && rejected(box.Text)) {
                 refused = box.Text; error.Text = "Windows rejected that password. Fix it, or press Save again to try it."; box.Focus(); return;
             }
             d.DialogResult = DialogResult.OK;
         };
-        box.TextChanged += delegate { if (box.Text != refused) error.Text = ""; };
-        d.Controls.AddRange(new Control[] { mark, title, lbl, field, error, ok, cancel });
+        box.TextChanged += delegate { blankConfirmed = false; if (box.Text != refused) error.Text = ""; };
+        controls.Add(ok); controls.Add(cancel);
+        d.Controls.AddRange(controls.ToArray());
         d.AcceptButton = ok; d.CancelButton = cancel; d.Shown += delegate { box.Focus(); };
         return d;
     }
@@ -188,4 +228,80 @@ static class Program
         }
         catch (Exception ex) { Log("startup failed: " + ex); MessageBox.Show("Annex could not open.\n" + ex.Message, "Annex", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
     }
+}
+
+// What kind of Windows account signs in to the Annex desktop, so sign-in help can be specific.
+sealed class SignInAccount
+{
+    public bool MicrosoftAccount { get; private set; }
+    public string Principal { get; private set; }
+    public bool PasswordlessOnly { get; private set; }
+    public SignInAccount(bool microsoftAccount, string principal, bool passwordlessOnly)
+    {
+        MicrosoftAccount = microsoftAccount; Principal = string.IsNullOrEmpty(principal) ? null : principal; PasswordlessOnly = passwordlessOnly;
+    }
+
+    public string PasswordHint(string account)
+    {
+        if (!MicrosoftAccount) return "Windows password for " + account + ", not your Windows Hello PIN.";
+        return "Your Microsoft account password" + (Principal != null ? " (" + Principal + ")" : "") + ", not your Windows Hello PIN.";
+    }
+
+    // Guidance after Windows refused the sign-in (RDP disconnect reason; 0 when unknown).
+    public string FailureHelp(string account, int reason)
+    {
+        if (reason == SignInFailure.AccountLockedOut) return "Windows locked this account after too many wrong passwords. Wait until the lockout ends (usually 10 minutes), then choose Start desktop.";
+        if (reason == SignInFailure.AccountRestricted) return "Windows refused this account for this kind of sign-in. Accounts without a password can't sign in to the Annex desktop: set a password in Settings > Accounts > Sign-in options, then choose Start desktop.";
+        if (reason == SignInFailure.PasswordExpired || reason == SignInFailure.MustChangePassword) return "Windows wants a new password for this account. Change it (Ctrl+Alt+Del > Change a password), then choose Start desktop.";
+        if (reason == SignInFailure.AccountDisabled || reason == SignInFailure.AccountExpired) return "Windows reports this account as disabled or expired.";
+        string text = PasswordHint(account);
+        if (PasswordlessOnly) text += " Windows Hello-only sign-in is on for this PC, which blocks passwords: turn off \"only allow Windows Hello sign-in for Microsoft accounts\" in Settings > Accounts > Sign-in options.";
+        else if (MicrosoftAccount) text += " If you changed it online or have only used a PIN on this PC, lock the PC and sign in once with the password so Windows learns it.";
+        return text + " Choose Start desktop to try again.";
+    }
+
+    public static void OpenSignInOptions()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:signinoptions") { UseShellExecute = true }); }
+        catch (Exception ex) { Program.Log("open sign-in options: " + ex.Message); }
+    }
+
+    [DllImport("netapi32.dll", CharSet = CharSet.Unicode)] static extern int NetUserGetInfo(string server, string user, int level, out IntPtr buffer);
+    [DllImport("netapi32.dll")] static extern int NetApiBufferFree(IntPtr buffer);
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct USER_INFO_24 { [MarshalAs(UnmanagedType.Bool)] public bool InternetIdentity; public uint Flags; public string Provider; public string Principal; public IntPtr Sid; }
+
+    public static SignInAccount Current()
+    {
+        bool microsoft = false; string principal = null; bool passwordless = false;
+        try {
+            IntPtr buffer;
+            if (NetUserGetInfo(null, Environment.UserName, 24, out buffer) == 0) {
+                try { var info = (USER_INFO_24)Marshal.PtrToStructure(buffer, typeof(USER_INFO_24)); microsoft = info.InternetIdentity; principal = info.Principal; }
+                finally { NetApiBufferFree(buffer); }
+            }
+        } catch (Exception ex) { Program.Log("account type: " + ex.Message); }
+        try {
+            object value = Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device", "DevicePasswordLessBuildVersion", null);
+            passwordless = value is int && (int)value == 2;
+        } catch (Exception ex) { Program.Log("passwordless setting: " + ex.Message); }
+        return new SignInAccount(microsoft, principal, passwordless);
+    }
+}
+
+// RDP disconnect reasons meaning Windows refused the account or password (not a dropped connection).
+static class SignInFailure
+{
+    public const int WrongPassword = 2055, UnknownUser = 2567, AccountDisabled = 2823, AccountRestricted = 3079,
+        AccountLockedOut = 3335, AccountExpired = 3591, MustChangePassword = 4615, PasswordExpired = 3847;
+    public static bool IsSignInFailure(int reason)
+    {
+        switch (reason) {
+            case WrongPassword: case UnknownUser: case AccountDisabled: case AccountRestricted:
+            case AccountLockedOut: case AccountExpired: case MustChangePassword: case PasswordExpired: return true;
+            default: return false;
+        }
+    }
+    // A saved password Windows refused must not be retried: repeated attempts can lock the account.
+    public static bool ForgetPassword(int reason) { return reason == WrongPassword || reason == UnknownUser || reason == AccountRestricted || reason == PasswordExpired || reason == MustChangePassword; }
 }

@@ -2,10 +2,10 @@
 .SYNOPSIS
   Builds Annex.exe and the installer dist\AnnexSetup-<version>.exe (needs Inno Setup 6.6+).
 .PARAMETER Version
-  Version shown in the installer and Installed apps, e.g. 1.0.0.
+  Version shown in the installer and Installed apps, e.g. 1.0.1.
 #>
 [CmdletBinding()]
-param([string]$Version = '1.0.0')
+param([string]$Version = '1.0.1')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 & (Join-Path $PSScriptRoot 'build.ps1')

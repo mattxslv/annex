@@ -145,10 +145,33 @@ sealed class AgentService
             if (request.Command == "LAUNCH_APP") {
                 ChildApp app; if (!apps.TryGetValue(request.AppId, out app)) throw new IOException("The selected app changed or the helper restarted. Refresh and choose it again.");
                 AppLaunchSpec spec = ChildAppLauncher.Build(app, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
-                reply.Diagnostic = ChildAppLauncher.Launch(spec, (uint)session, () => isChild() ? (uint)session : 0, ChildAppLauncher.NativeStart).Message;
+                reply.Diagnostic = WithinReplyTime(() => ChildAppLauncher.Launch(spec, (uint)session, () => isChild() ? (uint)session : 0, ChildAppLauncher.NativeStart).Message, root);
             }
         } catch (Exception ex) { reply.Diagnostic = HostInstallation.Limit(ex.Message, 512); }
         return Bounded(reply);
+    }
+    // Starting an app that needs administrator rights blocks until its Windows prompt is answered, and this
+    // single pipe thread must answer the launcher within its read timeout. Finish in the background instead.
+    public static int LaunchWaitMilliseconds = 1500;
+    internal static string WithinReplyTime(Func<string> launch, string logRoot) {
+        string result = null; var done = new System.Threading.ManualResetEvent(false);
+        var worker = new System.Threading.Thread(delegate() {
+            try { result = launch(); } catch (Exception ex) { result = "Could not open the app: " + ex.Message; }
+            done.Set();
+        }) { IsBackground = true };
+        worker.SetApartmentState(System.Threading.ApartmentState.STA);
+        worker.Start();
+        if (done.WaitOne(LaunchWaitMilliseconds)) { done.Close(); return result; }
+        System.Threading.RegisteredWaitHandle wait = null; object waitGate = new object(); bool fired = false;
+        System.Threading.WaitOrTimerCallback finished = delegate {
+            try { File.AppendAllText(Path.Combine(logRoot, "autostart.log"), DateTime.Now.ToString("o") + " app launch finished: " + result + Environment.NewLine); } catch { }
+            lock (waitGate) { fired = true; if (wait != null) { wait.Unregister(null); done.Close(); } }
+        };
+        lock (waitGate) {
+            wait = System.Threading.ThreadPool.RegisterWaitForSingleObject(done, finished, null, -1, true);
+            if (fired) { wait.Unregister(null); done.Close(); }
+        }
+        return "Opening the app. If Windows asks for approval, answer it in the Annex desktop.";
     }
     static AgentReply Bounded(AgentReply reply) {
         for (;;) {

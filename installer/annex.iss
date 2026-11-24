@@ -79,8 +79,6 @@ Name: "{userprograms}\Annex"; Filename: "{app}\Annex.exe"; WorkingDir: "{app}"; 
 Name: "{userdesktop}\Annex"; Filename: "{app}\Annex.exe"; WorkingDir: "{app}"; Comment: "Second desktop for game streaming"; Tasks: desktopicon
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\setup.ps1"" -NoBuild -NoShortcut {code:SetupArgs}"; \
-  StatusMsg: "Setting up Windows for Annex (approve the administrator prompts)..."; Flags: runhidden waituntilterminated
 Filename: "{app}\Annex.exe"; Description: "Open Annex"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
@@ -100,6 +98,9 @@ Type: files; Name: "{app}\display.cfg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
+var
+  SetupResult: Integer; // exit code of scripts\setup.ps1
+
 // Header: the same margin above the logo, to its right, and left of the title (the page content's
 // left inset). The header is margin + logo + margin tall; title and description are centred against
 // the logo. Re-applied on page changes because Inno lays the header out again.
@@ -171,6 +172,10 @@ procedure CurPageChanged(CurPageID: Integer);
 begin
   PlaceHeader;
   if CurPageID = wpWelcome then PlaceBannerText(WizardForm.WelcomeLabel1, WizardForm.WelcomeLabel2);
+  if (CurPageID = wpFinished) and (SetupResult <> 0) then begin
+    WizardForm.FinishedHeadingLabel.Caption := 'Annex needs one more step';
+    WizardForm.FinishedLabel.Caption := 'Annex is installed, but Windows setup did not finish. Open Annex and choose Setup / repair to complete it.';
+  end;
   if CurPageID = wpFinished then PlaceBannerText(WizardForm.FinishedHeadingLabel, WizardForm.FinishedLabel);
 end;
 
@@ -185,4 +190,19 @@ begin
   Result := '';
   if WizardIsTaskSelected('sunshine') then Result := Result + ' -InstallSunshine';
   if WizardIsTaskSelected('audio') then Result := Result + ' -RouteAudio';
+end;
+
+// Windows setup runs here rather than in [Run], which cannot see whether it worked.
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep <> ssPostInstall then Exit;
+  WizardForm.StatusLabel.Caption := 'Setting up Windows for Annex (approve the administrator prompts)...';
+  if not Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\scripts\setup.ps1') + '" -NoBuild -NoShortcut' + SetupArgs(''),
+    ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, SetupResult) then SetupResult := -1;
+  Log('setup.ps1 exit code: ' + IntToStr(SetupResult));
+  if SetupResult <> 0 then
+    SuppressibleMsgBox('Annex is installed, but Windows setup did not finish (exit code ' + IntToStr(SetupResult) + '). ' +
+      'This happens when an administrator prompt is declined. Open Annex and choose Setup / repair to try again. ' +
+      'Details are in setup-admin.log and launcher.log in ' + ExpandConstant('{app}') + '.', mbError, MB_OK, IDOK);
 end;

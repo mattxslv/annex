@@ -163,6 +163,7 @@ static class RegressionTests
         StreamingHostTests.Run(Check);
         SessionAgentTests.Run(Check);
         LauncherTests.Run(Check);
+        SignInTests.Run(Check);
         Console.WriteLine("C#: " + (checks - failures) + "/" + checks + " passed");
         return failures == 0 ? 0 : 1;
     }

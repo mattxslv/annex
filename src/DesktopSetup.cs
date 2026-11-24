@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
@@ -75,6 +76,9 @@ static class DesktopSetup
             actions.WriteRegistryDword(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server", "fDenyTSConnections", 0);
             actions.WriteRegistryDword(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations", "DWMFRAMEINTERVAL", 8);
             actions.WriteRegistryDword(@"HKEY_CURRENT_USER\Software\Microsoft\Terminal Server Client", "RemoteDesktop_SuppressWhenMinimized", 2);
+            // "Use hardware graphics adapters for all Remote Desktop Services sessions". Without it Windows 10
+            // renders remote sessions, and so the Annex desktop, on the CPU (Microsoft Basic Render Driver).
+            actions.WriteRegistryDword(HardwareGraphics.PolicyKey, HardwareGraphics.ValueName, 1);
             actions.WriteInstallationRecord(plan.InstallRoot);
             return new DesktopSetupResult(true, "Windows desktop setup is ready. If the Annex helper is not registered yet, run scripts\\setup.ps1 once. A streaming host is optional.");
         } catch (Exception ex) { return new DesktopSetupResult(false, "Windows setup did not finish: " + ex.Message + " Some earlier settings may have changed; repair explicitly after resolving the error."); }
@@ -96,6 +100,9 @@ static class DesktopSetup
         }
         try {
             var plan = Create(root);
+            // Setup / repair can be the first setup: remember the original values for uninstall before changing them.
+            try { SetupState.RecordMissing(Path.Combine(plan.InstallRoot, "setup-state.json"), SetupState.NativeOriginals()); }
+            catch (Exception ex) { Program.Log("setup state: " + ex.Message); }
             var result = Apply(plan, new NativeDesktopSetupActions());
             Program.Log("desktop setup: " + result.Message);
             MessageBox.Show(result.Message, "Annex setup", MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
@@ -109,4 +116,42 @@ sealed class NativeDesktopSetupActions : IDesktopSetupActions
     public bool EnableChildSessions() { return Program.EnableChildSessions(); }
     public void WriteRegistryDword(string path, string name, int value) { Registry.SetValue(path, name, value, RegistryValueKind.DWord); }
     public void WriteInstallationRecord(string root) { InstallationIdentity.Save(InstallationIdentity.RecordPath, root); }
+}
+
+static class HardwareGraphics
+{
+    public const string PolicyKey = @"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services";
+    public const string ValueName = "bEnumerateHWBeforeSW";
+    public static bool Enabled()
+    {
+        try { object value = Registry.GetValue(PolicyKey, ValueName, null); return value is int && (int)value == 1; }
+        catch (Exception) { return false; }
+    }
+}
+
+// setup-state.json: Windows settings as they were before Annex, restored by uninstall (setup-admin.ps1 -Uninstall).
+// Each value is recorded once; scripts\setup.ps1 records the same names plus the firewall rules.
+static class SetupState
+{
+    public static void RecordMissing(string path, IDictionary<string, Func<object>> originals)
+    {
+        var serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+        Dictionary<string, object> state = null;
+        if (File.Exists(path)) state = serializer.DeserializeObject(File.ReadAllText(path)) as Dictionary<string, object>;
+        if (state == null) state = new Dictionary<string, object>();
+        bool changed = false;
+        foreach (var original in originals) if (!state.ContainsKey(original.Key)) { state[original.Key] = original.Value(); changed = true; }
+        if (changed) File.WriteAllText(path, serializer.Serialize(state), new UTF8Encoding(false));
+    }
+    public static IDictionary<string, Func<object>> NativeOriginals()
+    {
+        const string ts = @"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server";
+        return new Dictionary<string, Func<object>> {
+            { "fDenyTSConnections", () => Registry.GetValue(ts, "fDenyTSConnections", null) },
+            { "DWMFRAMEINTERVAL", () => Registry.GetValue(ts + @"\WinStations", "DWMFRAMEINTERVAL", null) },
+            { "SuppressWhenMinimized", () => Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Terminal Server Client", "RemoteDesktop_SuppressWhenMinimized", null) },
+            { "ChildSessions", () => { bool enabled; return Program.ChildSessionsEnabled(out enabled) && enabled; } },
+            { HardwareGraphics.ValueName, () => Registry.GetValue(HardwareGraphics.PolicyKey, HardwareGraphics.ValueName, null) },
+        };
+    }
 }

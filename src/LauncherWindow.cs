@@ -100,7 +100,10 @@ sealed class LauncherWindow : Form
         var vendors = new ContextMenuStrip { Renderer = Theme.MenuRenderer(), BackColor = Theme.Surface, ForeColor = Theme.Text };
         vendors.Items.Add("Sunshine (download and set up)", null, (s, e) => { if (InstallRequested != null) InstallRequested("Sunshine"); });
         vendors.Items.Add("Apollo (open download page)", null, (s, e) => { if (InstallRequested != null) InstallRequested("Apollo"); });
-        Disposed += delegate { vendors.Dispose(); };
+        // Disposing a drop-down that is still open leaves it registered with WinForms' menu filter, and the next
+        // click crashed Annex (ObjectDisposedException). Close it before the window goes away.
+        FormClosing += delegate { vendors.Close(); };
+        Disposed += delegate { vendors.Close(); vendors.Dispose(); };
         install.Click += delegate { vendors.Show(install, new Point(0, install.Height)); };
         foreach (var tool in new[] { refreshHosts, browseHost, install }) { tool.Dock = DockStyle.Fill; tool.AutoSize = false; tool.Height = 32; tool.Margin = new Padding(1, 0, 1, 0); }
         hostTools.Controls.Add(refreshHosts, 0, 0); hostTools.Controls.Add(browseHost, 1, 0); hostTools.Controls.Add(install, 2, 0);

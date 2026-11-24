@@ -84,8 +84,12 @@ try {
 
     if (-not $SkipAdmin) {
         Step 'Protecting the Sunshine folder and adding its firewall rule (approve the Windows prompt)...'
-        $admin = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSScriptRoot\setup-admin.ps1`"")
+        # -KeepRemoteDesktop: this only protects Sunshine. Setup already applied the user's Remote Desktop firewall choice.
+        # Process.Start rather than Start-Process: only it reports a declined prompt as Win32Exception 1223.
+        $start = New-Object Diagnostics.ProcessStartInfo 'powershell.exe', "-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\setup-admin.ps1`" -KeepRemoteDesktop"
+        $start.Verb = 'runas'; $start.UseShellExecute = $true; $start.WindowStyle = 'Hidden'
+        $admin = [Diagnostics.Process]::Start($start)
+        $admin.WaitForExit()
         if ($admin.ExitCode -ne 0) { throw "The admin step failed (exit code $($admin.ExitCode)). See setup-admin.log." }
         Ok 'Folder protected, firewall rule added'
     }
@@ -94,7 +98,9 @@ try {
 catch {
     $code = 1
     $message = $_.Exception.Message
-    if ($_.Exception -is [ComponentModel.Win32Exception] -and $_.Exception.NativeErrorCode -eq 1223) { $message = 'The Windows administrator prompt was declined. Sunshine is downloaded but not protected yet; run Install again to finish.' }
+    # A method call wraps the declined-prompt Win32Exception in a MethodInvocationException.
+    $declined = @($_.Exception, $_.Exception.InnerException) | Where-Object { $_ -is [ComponentModel.Win32Exception] -and $_.NativeErrorCode -eq 1223 }
+    if ($declined) { $message = 'The Windows administrator prompt was declined. Sunshine is downloaded but not protected yet; run Install again to finish.' }
     if ($Report) { [Console]::Out.WriteLine("ERROR $message") } else { Write-Host ''; Write-Host "  Sunshine was not installed: $message" -ForegroundColor Red }
 }
 finally {

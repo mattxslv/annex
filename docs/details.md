@@ -45,7 +45,7 @@ The Annex desktop is 1920x1080 at 100% by default. To match your device, create 
     set a password for the account.
   - When Windows refuses a saved password, Annex deletes it and asks again instead of retrying, so it
     can't lock the account. Tray menu → **Forget saved password** clears it by hand.
-- **Slow or laggy Annex desktop (Windows 10)**: choose **Setup / repair** to turn on hardware graphics
+- **Slow or laggy Annex desktop (Windows 10, unsupported)**: choose **Setup / repair** to turn on hardware graphics
   for the Annex desktop, then **End session** and **Start desktop**.
 - **"Windows has the Annex helper turned off in Startup apps"**: turn `annex-helper` back on in
   Settings → Apps → Startup (or Task Manager → Startup apps), then **End session** and **Start desktop**.

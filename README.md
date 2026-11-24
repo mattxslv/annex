@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/mattxslv/annex/releases/latest"><img src="https://img.shields.io/github/v/release/mattxslv/annex?style=for-the-badge&label=download&color=7D82D9&logo=windows&logoColor=white" alt="Download"></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20Pro-2A3350?style=for-the-badge" alt="Windows 10/11 Pro">
+  <img src="https://img.shields.io/badge/Windows-11%20Pro-2A3350?style=for-the-badge" alt="Windows 11 Pro">
   <img src="https://img.shields.io/badge/works%20with-Sunshine%20%2B%20Moonlight-2A3350?style=for-the-badge" alt="Works with Sunshine and Moonlight">
   <img src="https://img.shields.io/github/license/mattxslv/annex?style=for-the-badge&color=2A3350" alt="MIT license">
 </p>
@@ -42,7 +42,7 @@ Keep Annex open while you stream. **Minimize to tray** is fine.
 
 ## Good to know
 
-- Needs **Windows 10/11 Pro** or higher. Home doesn't have child sessions.
+- Needs **Windows 11 Pro** or higher. Home doesn't have child sessions. Windows 10 isn't supported: it may work, but it is untested and can be slow.
 - **PCs with integrated and dedicated graphics:** Windows may put the Annex desktop on the integrated GPU,
   and then NVENC/AMF on your real GPU isn't used. Disable the integrated GPU in Device Manager (or BIOS)
   if you see that in Sunshine's log.
